@@ -23,11 +23,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             self.rebuildMenu()
         }
-        _ = hotKeys.registerSettingsHotKey { [weak self] in
-            DispatchQueue.main.async {
-                self?.openPreferencesWindow()
-            }
-        }
         configureStatusItem()
         observeSystemChanges()
         refreshPermissionState(showGuideIfNeeded: true)
@@ -47,8 +42,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            button.image = NSApp.applicationIconImage
-            button.image?.isTemplate = false
+            button.image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "pile")
+            button.image?.isTemplate = true
             button.toolTip = "pile"
         }
         statusItem = item

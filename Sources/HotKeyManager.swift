@@ -20,11 +20,9 @@ private let pileWindowHotKeyHandler: EventHandlerProcPtr = { _, event, userData 
 
 final class HotKeyManager {
     private let signature: OSType = 0x50494C45 // PILE
-    private let settingsIdentifier: UInt32 = 100
     private var eventHandler: EventHandlerRef?
     private var registrations: [UInt32: EventHotKeyRef] = [:]
     private var callbacks: [UInt32: () -> Void] = [:]
-    private var settingsRegistration: EventHotKeyRef?
 
     func registerAll(count: Int, modifier: HotKeyModifier, handler: @escaping (Int) -> Void) -> Bool {
         unregisterLayoutHotKeys()
@@ -58,25 +56,6 @@ final class HotKeyManager {
         return true
     }
 
-    func registerSettingsHotKey(handler: @escaping () -> Void) -> Bool {
-        unregisterSettingsHotKey()
-        guard installEventHandler() else { return false }
-        let hotKeyID = EventHotKeyID(signature: signature, id: settingsIdentifier)
-        var reference: EventHotKeyRef?
-        let status = RegisterEventHotKey(
-            UInt32(kVK_ANSI_Comma),
-            UInt32(cmdKey),
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &reference
-        )
-        guard status == noErr, let reference else { return false }
-        settingsRegistration = reference
-        callbacks[settingsIdentifier] = handler
-        return true
-    }
-
     func unregisterLayoutHotKeys() {
         for reference in registrations.values {
             UnregisterEventHotKey(reference)
@@ -85,29 +64,14 @@ final class HotKeyManager {
         for identifier in 1...5 {
             callbacks.removeValue(forKey: UInt32(identifier))
         }
-        removeEventHandlerIfUnused()
-    }
-
-    private func unregisterSettingsHotKey() {
-        if let settingsRegistration {
-            UnregisterEventHotKey(settingsRegistration)
-            self.settingsRegistration = nil
+        if registrations.isEmpty, let eventHandler {
+            RemoveEventHandler(eventHandler)
+            self.eventHandler = nil
         }
-        callbacks.removeValue(forKey: settingsIdentifier)
-        removeEventHandlerIfUnused()
     }
 
     func unregisterAll() {
         unregisterLayoutHotKeys()
-        unregisterSettingsHotKey()
-    }
-
-    private func removeEventHandlerIfUnused() {
-        guard registrations.isEmpty, settingsRegistration == nil else { return }
-        if let eventHandler {
-            RemoveEventHandler(eventHandler)
-            self.eventHandler = nil
-        }
     }
 
     fileprivate func dispatch(_ identifier: UInt32) {
