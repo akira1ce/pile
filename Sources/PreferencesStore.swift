@@ -42,10 +42,31 @@ struct WindowPresetSettings: Codable, Equatable, Identifiable, Sendable {
 
 struct AppPreferences: Codable, Equatable, Sendable {
     var modifier: HotKeyModifier
+    var stackGap: Double
     var presets: [WindowPresetSettings]
+
+    private enum CodingKeys: String, CodingKey {
+        case modifier
+        case stackGap
+        case presets
+    }
+
+    init(modifier: HotKeyModifier, stackGap: Double, presets: [WindowPresetSettings]) {
+        self.modifier = modifier
+        self.stackGap = stackGap
+        self.presets = presets
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        modifier = try container.decodeIfPresent(HotKeyModifier.self, forKey: .modifier) ?? .option
+        stackGap = try container.decodeIfPresent(Double.self, forKey: .stackGap) ?? 10
+        presets = try container.decode([WindowPresetSettings].self, forKey: .presets)
+    }
 
     static let defaults = AppPreferences(
         modifier: .option,
+        stackGap: 10,
         presets: [
             WindowPresetSettings(widthPercent: 60, heightPercent: 72),
             WindowPresetSettings(widthPercent: 72, heightPercent: 78),
@@ -78,7 +99,8 @@ final class PreferencesStore: ObservableObject {
             LayoutPreset(
                 number: index + 1,
                 widthPercent: preset.widthPercent,
-                heightPercent: preset.heightPercent
+                heightPercent: preset.heightPercent,
+                stackGap: preferences.stackGap
             )
         }
     }
@@ -86,13 +108,24 @@ final class PreferencesStore: ObservableObject {
     func layoutPreset(number: Int) -> LayoutPreset? {
         guard preferences.presets.indices.contains(number - 1) else { return nil }
         let settings = preferences.presets[number - 1]
-        return LayoutPreset(number: number, widthPercent: settings.widthPercent, heightPercent: settings.heightPercent)
+        return LayoutPreset(
+            number: number,
+            widthPercent: settings.widthPercent,
+            heightPercent: settings.heightPercent,
+            stackGap: preferences.stackGap
+        )
     }
 
     func setModifier(_ modifier: HotKeyModifier) {
         guard modifier != preferences.modifier else { return }
         var updated = preferences
         updated.modifier = modifier
+        save(updated)
+    }
+
+    func setStackGap(_ value: Double) {
+        var updated = preferences
+        updated.stackGap = Self.clampedStackGap(value)
         save(updated)
     }
 
@@ -149,8 +182,16 @@ final class PreferencesStore: ObservableObject {
         return min(100, max(1, value))
     }
 
+    private static func clampedStackGap(_ value: Double) -> Double {
+        guard value.isFinite else { return 10 }
+        let clamped = min(20, max(2, value))
+        return (clamped / 2).rounded() * 2
+    }
+
     private static func isValid(_ preferences: AppPreferences) -> Bool {
         (1...5).contains(preferences.presets.count)
+            && preferences.stackGap.isFinite && (2...20).contains(preferences.stackGap)
+            && preferences.stackGap.truncatingRemainder(dividingBy: 2) == 0
             && preferences.presets.allSatisfy {
                 $0.widthPercent.isFinite && (1...100).contains($0.widthPercent)
                     && $0.heightPercent.isFinite && (1...100).contains($0.heightPercent)

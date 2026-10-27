@@ -352,22 +352,34 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         _ targets: [WindowTarget],
         at index: Int,
         windowsByID: [String: WindowIdentity],
+        allSucceeded: Bool = true,
         completion: @MainActor @Sendable @escaping (Bool) -> Void
     ) {
         guard index < targets.count else {
-            completion(true)
+            completion(allSucceeded)
             return
         }
         let target = targets[index]
         guard let window = windowsByID[target.windowID] else {
-            completion(false)
+            applyTarget(
+                targets,
+                at: index + 1,
+                windowsByID: windowsByID,
+                allSucceeded: false,
+                completion: completion
+            )
             return
         }
         accessibility.setFrame(target.frame, for: window) { [weak self] succeeded in
             Task { @MainActor [weak self] in
                 guard let self else { completion(false); return }
-                guard succeeded else { completion(false); return }
-                self.applyTarget(targets, at: index + 1, windowsByID: windowsByID, completion: completion)
+                self.applyTarget(
+                    targets,
+                    at: index + 1,
+                    windowsByID: windowsByID,
+                    allSucceeded: allSucceeded && succeeded,
+                    completion: completion
+                )
             }
         }
     }

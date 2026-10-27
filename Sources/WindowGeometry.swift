@@ -148,13 +148,8 @@ enum WindowGeometry {
         )
     }
 
-    static func stackOffset(count: Int, screen: ScreenGeometry, windowFrame: WindowFrame) -> Double {
-        guard count >= 2 else { return 0 }
-        return max(0, min(
-            36,
-            (screen.usableFrame.width - windowFrame.width) / Double(count - 1),
-            (screen.usableFrame.height - windowFrame.height) / Double(count - 1)
-        ))
+    static func stackOffset(count: Int) -> Double {
+        count >= 2 ? 36 : 0
     }
 
     static func arrangement(
@@ -167,7 +162,7 @@ enum WindowGeometry {
         guard !windows.isEmpty, windows.contains(where: { $0.id == focusedWindowID }) else { return nil }
 
         let base = targetFrame(for: preset, in: screen)
-        let offset = mode == .stacked ? stackOffset(count: windows.count, screen: screen, windowFrame: base) : 0
+        let offset = mode == .stacked ? stackOffset(count: windows.count) : 0
         let targets = windows.enumerated().map { index, window in
             let shift = Double(index) * offset
             return WindowTarget(
@@ -191,13 +186,11 @@ enum WindowGeometry {
     static func isIntact(
         state: WindowLayoutState?,
         windows: [LayoutWindow],
-        preset: LayoutPreset,
         screen: ScreenGeometry,
         tolerance: Double = 4
     ) -> Bool {
         guard let state,
               state.mode == .stacked,
-              state.preset == preset,
               state.screenUUID == screen.uuid,
               state.orderedWindowIDs.count == windows.count,
               Set(state.orderedWindowIDs) == Set(windows.map(\.id)),
@@ -207,7 +200,7 @@ enum WindowGeometry {
                         < (state.orderedWindowIDs.firstIndex(of: rhs.id) ?? .max)
                 },
                 focusedWindowID: state.orderedWindowIDs[0],
-                preset: preset,
+                preset: state.preset,
                 screen: screen,
                 mode: .stacked
               ) else { return false }

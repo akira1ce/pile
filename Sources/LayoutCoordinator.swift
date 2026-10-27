@@ -43,7 +43,6 @@ final class LayoutCoordinator {
         let shouldCollapse = WindowGeometry.isIntact(
             state: existing,
             windows: windows,
-            preset: preset,
             screen: screen
         )
         pendingPress = PendingPress(
