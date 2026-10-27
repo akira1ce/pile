@@ -36,6 +36,7 @@ struct LayoutPreset: Equatable, Sendable {
     let number: Int
     let widthPercent: Double
     let heightPercent: Double
+    let stackGap: Double
 
     var widthScale: Double { widthPercent / 100 }
     var heightScale: Double { heightPercent / 100 }
@@ -148,8 +149,8 @@ enum WindowGeometry {
         )
     }
 
-    static func stackOffset(count: Int) -> Double {
-        count >= 2 ? 36 : 0
+    static func stackOffset(count: Int, preset: LayoutPreset) -> Double {
+        count >= 2 ? preset.stackGap : 0
     }
 
     static func arrangement(
@@ -162,7 +163,7 @@ enum WindowGeometry {
         guard !windows.isEmpty, windows.contains(where: { $0.id == focusedWindowID }) else { return nil }
 
         let base = targetFrame(for: preset, in: screen)
-        let offset = mode == .stacked ? stackOffset(count: windows.count) : 0
+        let offset = mode == .stacked ? stackOffset(count: windows.count, preset: preset) : 0
         let targets = windows.enumerated().map { index, window in
             let shift = Double(index) * offset
             return WindowTarget(
