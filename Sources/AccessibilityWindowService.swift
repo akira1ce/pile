@@ -17,23 +17,97 @@ final class AccessibilityWindowService: @unchecked Sendable {
     @MainActor
     func focusedWindow(completion: @escaping @Sendable (WindowIdentity?) -> Void) {
         let screens = NSScreen.screens.compactMap { ScreenGeometry(screen: $0) }
+        let frontmostProcessID = NSWorkspace.shared.frontmostApplication?.processIdentifier
         queue.async {
-            guard self.isTrusted(prompt: false),
-                  let system = Optional(AXUIElementCreateSystemWide()),
-                  let focusedApp = self.axElement(self.attribute(system, kAXFocusedApplicationAttribute)),
-                  let element = self.axElement(self.attribute(focusedApp, kAXFocusedWindowAttribute)),
-                  let identity = self.identity(for: element, preferredWindowNumber: nil, screens: screens) else {
+            guard self.isTrusted(prompt: false) else {
                 completion(nil)
                 return
             }
-            let cgCandidates = self.visibleCGWindows()
-                .filter { $0.processID == identity.processID && $0.layer == 0 }
-            let titleMatches = cgCandidates.filter { !$0.title.isEmpty && $0.title == identity.title }
-            let pool = titleMatches.isEmpty ? cgCandidates : titleMatches
-            let cgMatch = pool.min {
-                self.frameDistance(identity.frame, $0.frame) < self.frameDistance(identity.frame, $1.frame)
-            }.flatMap { self.frameDistance(identity.frame, $0.frame) <= 40 ? $0 : nil }
-            completion(cgMatch.map { identity.withID($0.id) } ?? identity)
+
+            let system = AXUIElementCreateSystemWide()
+            let focusedApplication = self.axElement(self.attribute(system, kAXFocusedApplicationAttribute))
+            let focusedUIElement = self.axElement(self.attribute(system, kAXFocusedUIElementAttribute))
+
+            var processIDs: [pid_t] = []
+            if let focusedApplication {
+                var processID: pid_t = 0
+                if AXUIElementGetPid(focusedApplication, &processID) == .success {
+                    processIDs.append(processID)
+                }
+            }
+            if let focusedUIElement {
+                var processID: pid_t = 0
+                if AXUIElementGetPid(focusedUIElement, &processID) == .success,
+                   !processIDs.contains(processID) {
+                    processIDs.append(processID)
+                }
+            }
+            if let frontmostProcessID, !processIDs.contains(frontmostProcessID) {
+                processIDs.append(frontmostProcessID)
+            }
+
+            let cgWindows = self.visibleCGWindows()
+            for processID in processIDs {
+                let app = focusedApplication.flatMap { element -> AXUIElement? in
+                    var focusedProcessID: pid_t = 0
+                    guard AXUIElementGetPid(element, &focusedProcessID) == .success,
+                          focusedProcessID == processID else { return nil }
+                    return element
+                } ?? AXUIElementCreateApplication(processID)
+                AXUIElementSetMessagingTimeout(app, self.messagingTimeout)
+
+                let cgCandidates = cgWindows.filter { $0.processID == processID && $0.layer == 0 }
+                let preferredElements = [
+                    self.axElement(self.attribute(app, kAXFocusedWindowAttribute)),
+                    self.axElement(self.attribute(app, kAXMainWindowAttribute)),
+                ].compactMap { $0 }
+
+                var nonstandardFocusedIdentity: WindowIdentity?
+                for element in preferredElements {
+                    guard let identity = self.identity(
+                        for: element,
+                        preferredWindowNumber: nil,
+                        screens: screens
+                    ) else { continue }
+                    if identity.isStandard {
+                        completion(self.identity(identity, matchedTo: cgCandidates))
+                        return
+                    }
+                    if nonstandardFocusedIdentity == nil {
+                        nonstandardFocusedIdentity = identity
+                    }
+                }
+
+                let appWindows = (self.attribute(app, kAXWindowsAttribute) as? [AXUIElement]) ?? []
+                let identities = appWindows.compactMap {
+                    self.identity(for: $0, preferredWindowNumber: nil, screens: screens)
+                }
+                var consumed = Set<String>()
+                for cgWindow in cgCandidates {
+                    guard let identity = self.match(
+                        cgWindow,
+                        among: identities,
+                        excluding: consumed,
+                        screens: screens
+                    ) else { continue }
+                    consumed.insert(identity.id)
+                    guard identity.isStandard, !identity.isMinimized, !identity.isFullScreen else { continue }
+                    completion(identity.withID(cgWindow.id))
+                    return
+                }
+
+                if let identity = identities.first(where: { $0.isStandard && !$0.isMinimized && !$0.isFullScreen }) {
+                    completion(self.identity(identity, matchedTo: cgCandidates))
+                    return
+                }
+
+                if let nonstandardFocusedIdentity {
+                    completion(nonstandardFocusedIdentity)
+                    return
+                }
+            }
+
+            completion(nil)
         }
     }
 
@@ -244,6 +318,18 @@ final class AccessibilityWindowService: @unchecked Sendable {
             + abs(frame.y - cgFrame.origin.y)
             + abs(frame.width - cgFrame.width)
             + abs(frame.height - cgFrame.height)
+    }
+
+    private func identity(
+        _ identity: WindowIdentity,
+        matchedTo candidates: [CGWindowRecord]
+    ) -> WindowIdentity {
+        let titleMatches = candidates.filter { !$0.title.isEmpty && $0.title == identity.title }
+        let pool = titleMatches.isEmpty ? candidates : titleMatches
+        let cgMatch = pool.min {
+            frameDistance(identity.frame, $0.frame) < frameDistance(identity.frame, $1.frame)
+        }.flatMap { frameDistance(identity.frame, $0.frame) <= 40 ? $0 : nil }
+        return cgMatch.map { identity.withID($0.id) } ?? identity
     }
 }
 
