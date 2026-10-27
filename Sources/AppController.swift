@@ -47,7 +47,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "窗口管理")
+            button.image = NSApp.applicationIconImage
+            button.image?.isTemplate = false
             button.toolTip = "pile"
         }
         statusItem = item
@@ -65,7 +66,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if accessibility.isTrusted() {
             for preset in preferences.layoutPresets {
                 let item = NSMenuItem(
-                    title: "\(preset.shortcutTitle(for: preferences.preferences.modifier))  \(preset.actionTitle)",
+                    title: "\(preset.shortcutTitle(for: preferences.preferences.modifier))  居中",
                     action: #selector(selectPreset(_:)),
                     keyEquivalent: ""
                 )
