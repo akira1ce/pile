@@ -3,7 +3,6 @@ import SwiftUI
 @MainActor
 struct SettingsView: View {
     @ObservedObject var store: PreferencesStore
-    @State private var systemToggleComparison = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -45,19 +44,8 @@ struct SettingsView: View {
             HStack {
                 Label("快捷键修饰键", systemImage: "command")
                 Spacer()
-                Picker("快捷键修饰键", selection: Binding(
-                    get: { store.preferences.modifier },
-                    set: { store.setModifier($0) }
-                )) {
-                    ForEach(HotKeyModifier.allCases) { modifier in
-                        Text(modifier.symbol)
-                            .tag(modifier)
-                            .help(modifier.title)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .frame(width: 190)
+                modifierPicker
+                    .frame(width: 190)
             }
 
             Divider()
@@ -76,14 +64,6 @@ struct SettingsView: View {
                     in: 2...20
                 )
                 HStack {
-                    Label("系统开关对照", systemImage: "switch.2")
-                        .font(.callout)
-                    Spacer()
-                    Toggle("系统开关对照", isOn: $systemToggleComparison)
-                        .labelsHidden()
-                        .toggleStyle(.switch)
-                }
-                HStack {
                     Text("2 pt")
                     Spacer()
                     Text("20 pt")
@@ -94,6 +74,24 @@ struct SettingsView: View {
         }
         .padding(18)
         .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var modifierPicker: some View {
+        modifierPickerControl.pickerStyle(.tabs)
+    }
+
+    private var modifierPickerControl: some View {
+        Picker("快捷键修饰键", selection: Binding(
+            get: { store.preferences.modifier },
+            set: { store.setModifier($0) }
+        )) {
+            ForEach(HotKeyModifier.allCases) { modifier in
+                Text(modifier.symbol)
+                    .tag(modifier)
+                    .help(modifier.title)
+            }
+        }
+        .labelsHidden()
     }
 
     private var presetSettings: some View {
