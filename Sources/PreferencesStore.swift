@@ -179,7 +179,7 @@ final class PreferencesStore: ObservableObject {
 
     private static func clamped(_ value: Double) -> Double {
         guard value.isFinite else { return 1 }
-        return min(100, max(1, value))
+        return min(100, max(1, value.rounded()))
     }
 
     private static func clampedStackGap(_ value: Double) -> Double {

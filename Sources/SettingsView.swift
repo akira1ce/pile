@@ -3,6 +3,7 @@ import SwiftUI
 @MainActor
 struct SettingsView: View {
     @ObservedObject var store: PreferencesStore
+    @State private var systemToggleComparison = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -72,9 +73,16 @@ struct SettingsView: View {
                         get: { store.preferences.stackGap },
                         set: { store.setStackGap($0) }
                     ),
-                    in: 2...20,
-                    step: 2
+                    in: 2...20
                 )
+                HStack {
+                    Label("系统开关对照", systemImage: "switch.2")
+                        .font(.callout)
+                    Spacer()
+                    Toggle("系统开关对照", isOn: $systemToggleComparison)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                }
                 HStack {
                     Text("2 pt")
                     Spacer()
@@ -173,7 +181,7 @@ struct SettingsView: View {
                 Spacer()
                 valueBadge("\(Int(value.wrappedValue.rounded()))%")
             }
-            Slider(value: value, in: 1...100, step: 1)
+            Slider(value: value, in: 1...100)
                 .accessibilityLabel(title)
         }
         .frame(maxWidth: .infinity)

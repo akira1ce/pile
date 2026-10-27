@@ -12,7 +12,9 @@ esac
 
 cd "$PROJECT_ROOT"
 mkdir -p ".build/clang-module-cache" ".build/swift-module-cache"
-BUILD_ARGS=(--disable-sandbox -c "$CONFIGURATION" --product pile)
+MACOS_SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
+echo "Using macOS SDK: $MACOS_SDK_PATH"
+BUILD_ARGS=(--disable-sandbox --sdk "$MACOS_SDK_PATH" -c "$CONFIGURATION" --product pile)
 if [[ "$CONFIGURATION" == "release" ]]; then
     BUILD_ARGS+=(-debug-info-format none)
 fi
