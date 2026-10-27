@@ -24,9 +24,20 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             self.rebuildMenu()
         }
+        configureMainMenu()
         configureStatusItem()
         observeSystemChanges()
         refreshPermissionState(showGuideIfNeeded: true)
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        guard !hasVisibleWindows else { return true }
+        if accessibility.isTrusted() {
+            openPreferencesWindow()
+        } else {
+            showPermissionGuide()
+        }
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -51,21 +62,66 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         rebuildMenu()
     }
 
+    private func configureMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appMenuItem = NSMenuItem()
+        let appMenu = NSMenu()
+        let about = NSMenuItem(
+            title: "关于 pile",
+            action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
+            keyEquivalent: ""
+        )
+        about.target = NSApplication.shared
+        appMenu.addItem(about)
+        appMenu.addItem(.separator())
+
+        let settings = NSMenuItem(title: "设置…", action: #selector(openPreferences), keyEquivalent: ",")
+        settings.keyEquivalentModifierMask = [.command]
+        settings.target = self
+        appMenu.addItem(settings)
+        appMenu.addItem(.separator())
+
+        let quit = NSMenuItem(title: "退出 pile", action: #selector(quit), keyEquivalent: "q")
+        quit.target = self
+        appMenu.addItem(quit)
+        appMenuItem.submenu = appMenu
+        mainMenu.addItem(appMenuItem)
+
+        let windowMenuItem = NSMenuItem(title: "窗口", action: nil, keyEquivalent: "")
+        let windowMenu = NSMenu()
+        let close = NSMenuItem(
+            title: "关闭窗口",
+            action: #selector(NSWindow.performClose(_:)),
+            keyEquivalent: "w"
+        )
+        close.keyEquivalentModifierMask = [.command]
+        windowMenu.addItem(close)
+        windowMenuItem.submenu = windowMenu
+        mainMenu.addItem(windowMenuItem)
+
+        NSApplication.shared.mainMenu = mainMenu
+        NSApplication.shared.windowsMenu = windowMenu
+    }
+
     private func rebuildMenu() {
         guard let statusItem else { return }
         let menu = NSMenu()
-        let status = NSMenuItem(title: statusMessage, action: nil, keyEquivalent: "")
-        status.isEnabled = false
-        menu.addItem(status)
-        menu.addItem(.separator())
+        if statusMessage != shortcutsEnabledMessage {
+            let status = NSMenuItem(title: statusMessage, action: nil, keyEquivalent: "")
+            status.isEnabled = false
+            menu.addItem(status)
+            menu.addItem(.separator())
+        }
 
         if accessibility.isTrusted() {
             for preset in preferences.layoutPresets {
                 let item = NSMenuItem(
-                    title: "\(preset.shortcutTitle(for: preferences.preferences.modifier))  居中",
+                    title: presetMenuTitle(for: preset.number),
                     action: #selector(selectPreset(_:)),
-                    keyEquivalent: ""
+                    keyEquivalent: String(preset.number)
                 )
+                item.keyEquivalentModifierMask = menuModifierFlags(for: preferences.preferences.modifier)
                 item.target = self
                 item.tag = preset.number
                 menu.addItem(item)
@@ -86,6 +142,21 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         quit.target = self
         menu.addItem(quit)
         statusItem.menu = menu
+    }
+
+    private func presetMenuTitle(for number: Int) -> String {
+        let numerals = ["一", "二", "三", "四", "五"]
+        guard numerals.indices.contains(number - 1) else { return "堆\(number)" }
+        return "堆\(numerals[number - 1])"
+    }
+
+    private func menuModifierFlags(for modifier: HotKeyModifier) -> NSEvent.ModifierFlags {
+        switch modifier {
+        case .option: .option
+        case .command: .command
+        case .control: .control
+        case .shift: .shift
+        }
     }
 
     private func observeSystemChanges() {
@@ -141,6 +212,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         registerConfiguredHotKeys()
         closePermissionGuide()
+        if preferencesWindow == nil {
+            openPreferencesWindow()
+        }
     }
 
     @discardableResult

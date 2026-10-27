@@ -28,8 +28,6 @@
 	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>27.0</string>
-	<key>LSUIElement</key>
-	<true/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
