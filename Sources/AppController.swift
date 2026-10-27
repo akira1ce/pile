@@ -54,8 +54,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func configureStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = item.button {
-            button.image = NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "pile")
-            button.image?.isTemplate = true
+            let appIcon = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
+                .flatMap(NSImage.init(contentsOf:))
+            let image = appIcon ?? NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "pile")
+            image?.size = NSSize(width: 18, height: 18)
+            image?.isTemplate = false
+            button.image = image
+            button.imageScaling = .scaleProportionallyDown
+            button.imagePosition = .imageOnly
             button.toolTip = "pile"
         }
         statusItem = item
