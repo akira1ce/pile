@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let accessibility = AccessibilityWindowService()
     private let hotKeys = HotKeyManager()
@@ -94,21 +95,27 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.refreshPermissionState(showGuideIfNeeded: false)
+            Task { @MainActor [weak self] in
+                self?.refreshPermissionState(showGuideIfNeeded: false)
+            }
         })
         observers.append(center.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.layouts.clearState()
+            Task { @MainActor [weak self] in
+                self?.layouts.clearState()
+            }
         })
         observers.append(center.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.layouts.clearState()
+            Task { @MainActor [weak self] in
+                self?.layouts.clearState()
+            }
         })
     }
 
@@ -144,9 +151,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             modifier: current.modifier
         ) { [weak self] presetNumber in
             let pressedAt = Date()
-            DispatchQueue.main.async {
-                self?.perform(number: presetNumber, pressedAt: pressedAt)
-            }
+            self?.perform(number: presetNumber, pressedAt: pressedAt)
         }
         isReady = succeeded
         statusMessage = succeeded ? shortcutsEnabledMessage : "快捷键注册失败"
@@ -268,7 +273,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         accessibility.focusedWindow { [weak self] focused in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 guard let focused,
                       focused.isStandard,
@@ -281,8 +286,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                     self.rebuildMenu()
                     return
                 }
-                self.accessibility.windows(on: screen, focusedWindowID: focused.id) { visibleWindows in
-                    DispatchQueue.main.async {
+                let screenUUID = focused.screenUUID
+                self.accessibility.windows(on: screen, focusedWindowID: focused.id) { [weak self] visibleWindows in
+                    Task { @MainActor [weak self] in
+                        guard let self,
+                              let screen = NSScreen.screens.first(where: {
+                                  ScreenGeometry(screen: $0)?.uuid == screenUUID
+                              }) else { return }
                         var windows = visibleWindows
                         if !windows.contains(where: { $0.id == focused.id }) {
                             windows.insert(focused, at: 0)
@@ -315,7 +325,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         case let .center(focusedWindowID, frame):
             guard let window = windowsByID[focusedWindowID] else { return }
             accessibility.setFrame(frame, for: window) { [weak self] succeeded in
-                DispatchQueue.main.async {
+                Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.statusMessage = succeeded ? "窗口已居中" : "窗口未能调整"
                     self.rebuildMenu()
@@ -342,7 +352,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         _ targets: [WindowTarget],
         at index: Int,
         windowsByID: [String: WindowIdentity],
-        completion: @escaping (Bool) -> Void
+        completion: @MainActor @Sendable @escaping (Bool) -> Void
     ) {
         guard index < targets.count else {
             completion(true)
@@ -354,7 +364,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         accessibility.setFrame(target.frame, for: window) { [weak self] succeeded in
-            DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
                 guard let self else { completion(false); return }
                 guard succeeded else { completion(false); return }
                 self.applyTarget(targets, at: index + 1, windowsByID: windowsByID, completion: completion)

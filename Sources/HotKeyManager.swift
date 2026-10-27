@@ -14,17 +14,25 @@ private let pileWindowHotKeyHandler: EventHandlerProcPtr = { _, event, userData 
         &hotKeyID
     )
     guard status == noErr else { return status }
-    Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue().dispatch(hotKeyID.id)
+    let manager = Unmanaged<HotKeyManager>.fromOpaque(userData).takeUnretainedValue()
+    Task { @MainActor in
+        manager.dispatch(hotKeyID.id)
+    }
     return noErr
 }
 
+@MainActor
 final class HotKeyManager {
     private let signature: OSType = 0x50494C45 // PILE
     private var eventHandler: EventHandlerRef?
     private var registrations: [UInt32: EventHotKeyRef] = [:]
-    private var callbacks: [UInt32: () -> Void] = [:]
+    private var callbacks: [UInt32: @MainActor @Sendable () -> Void] = [:]
 
-    func registerAll(count: Int, modifier: HotKeyModifier, handler: @escaping (Int) -> Void) -> Bool {
+    func registerAll(
+        count: Int,
+        modifier: HotKeyModifier,
+        handler: @escaping @MainActor @Sendable (Int) -> Void
+    ) -> Bool {
         unregisterLayoutHotKeys()
         guard (1...5).contains(count) else { return false }
         guard installEventHandler() else { return false }

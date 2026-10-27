@@ -9,12 +9,13 @@ final class AccessibilityWindowService: @unchecked Sendable {
 
     func isTrusted(prompt: Bool = false) -> Bool {
         let options: CFDictionary? = prompt
-            ? [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            ? ["AXTrustedCheckOptionPrompt": true] as CFDictionary
             : nil
         return AXIsProcessTrustedWithOptions(options)
     }
 
-    func focusedWindow(completion: @escaping (WindowIdentity?) -> Void) {
+    @MainActor
+    func focusedWindow(completion: @escaping @Sendable (WindowIdentity?) -> Void) {
         let screens = NSScreen.screens.compactMap { ScreenGeometry(screen: $0) }
         queue.async {
             guard self.isTrusted(prompt: false),
@@ -36,7 +37,8 @@ final class AccessibilityWindowService: @unchecked Sendable {
         }
     }
 
-    func windows(on screen: NSScreen, focusedWindowID: String, completion: @escaping ([WindowIdentity]) -> Void) {
+    @MainActor
+    func windows(on screen: NSScreen, focusedWindowID: String, completion: @escaping @Sendable ([WindowIdentity]) -> Void) {
         let screens = NSScreen.screens.compactMap { ScreenGeometry(screen: $0) }
         guard let screenGeometry = ScreenGeometry(screen: screen) else {
             completion([])
@@ -82,7 +84,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
         }
     }
 
-    func setFrame(_ frame: WindowFrame, for window: WindowIdentity, completion: @escaping (Bool) -> Void) {
+    func setFrame(_ frame: WindowFrame, for window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
         queue.async {
             var point = CGPoint(x: frame.x, y: frame.y)
             var size = CGSize(width: frame.width, height: frame.height)
@@ -111,7 +113,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
         }
     }
 
-    func raise(_ window: WindowIdentity, completion: @escaping (Bool) -> Void) {
+    func raise(_ window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
         queue.async {
             completion(AXUIElementPerformAction(window.accessibilityElement, kAXRaiseAction as CFString) == .success)
         }

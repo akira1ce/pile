@@ -1,5 +1,6 @@
 import SwiftUI
 
+@MainActor
 struct SettingsView: View {
     @ObservedObject var store: PreferencesStore
 

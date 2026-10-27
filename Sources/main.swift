@@ -1,6 +1,7 @@
 import AppKit
 
 @main
+@MainActor
 enum PileApp {
     static func main() {
         let app = NSApplication.shared

@@ -54,6 +54,7 @@ struct AppPreferences: Codable, Equatable, Sendable {
     )
 }
 
+@MainActor
 final class PreferencesStore: ObservableObject {
     private static let storageKey = "pile.preferences.v1"
     private let userDefaults: UserDefaults

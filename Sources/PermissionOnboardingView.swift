@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 struct PermissionOnboardingView: View {
     let onRequestAccess: () -> Void
     let onOpenSettings: () -> Void
