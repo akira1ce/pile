@@ -20,7 +20,7 @@ struct PermissionOnboardingView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("先开启辅助功能权限")
                         .font(.title2.weight(.semibold))
-                    Text("完成这一步后，Option + 数字快捷键就能管理窗口。")
+                    Text("完成这一步后，所选修饰键 + 数字快捷键就能管理窗口。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }

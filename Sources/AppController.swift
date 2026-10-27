@@ -1,17 +1,33 @@
 import AppKit
 import SwiftUI
 
-final class AppController: NSObject, NSApplicationDelegate {
+final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let accessibility = AccessibilityWindowService()
     private let hotKeys = HotKeyManager()
     private let layouts = LayoutCoordinator()
+    private let preferences = PreferencesStore()
     private var statusItem: NSStatusItem?
     private var permissionWindow: NSWindow?
+    private var preferencesWindow: NSWindow?
     private var observers: [NSObjectProtocol] = []
     private var isReady = false
     private var statusMessage = "正在检查辅助功能权限"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        preferences.onChange = { [weak self] oldValue, newValue in
+            guard let self else { return }
+            let hotKeyConfigurationChanged = oldValue.modifier != newValue.modifier
+                || oldValue.presets.count != newValue.presets.count
+            if self.isReady && hotKeyConfigurationChanged {
+                self.registerConfiguredHotKeys()
+            }
+            self.rebuildMenu()
+        }
+        _ = hotKeys.registerSettingsHotKey { [weak self] in
+            DispatchQueue.main.async {
+                self?.openPreferencesWindow()
+            }
+        }
         configureStatusItem()
         observeSystemChanges()
         refreshPermissionState(showGuideIfNeeded: true)
@@ -20,6 +36,12 @@ final class AppController: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         hotKeys.unregisterAll()
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window === preferencesWindow else { return }
+        preferencesWindow = nil
     }
 
     private func configureStatusItem() {
@@ -40,15 +62,15 @@ final class AppController: NSObject, NSApplicationDelegate {
         menu.addItem(status)
         menu.addItem(.separator())
 
-        if isReady {
-            for preset in LayoutPreset.allCases {
+        if accessibility.isTrusted() {
+            for preset in preferences.layoutPresets {
                 let item = NSMenuItem(
-                    title: "\(preset.shortcutTitle)  \(preset.actionTitle)",
+                    title: "\(preset.shortcutTitle(for: preferences.preferences.modifier))  \(preset.actionTitle)",
                     action: #selector(selectPreset(_:)),
                     keyEquivalent: ""
                 )
                 item.target = self
-                item.tag = preset.rawValue
+                item.tag = preset.number
                 menu.addItem(item)
             }
         } else {
@@ -57,6 +79,11 @@ final class AppController: NSObject, NSApplicationDelegate {
             menu.addItem(item)
         }
 
+        menu.addItem(.separator())
+        let settings = NSMenuItem(title: "设置…", action: #selector(openPreferences), keyEquivalent: ",")
+        settings.keyEquivalentModifierMask = [.command]
+        settings.target = self
+        menu.addItem(settings)
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
@@ -103,31 +130,43 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     private func enterReadyState() {
-        guard !isReady else {
-            statusMessage = "快捷键已启用：Option + 1 / 2 / 3"
+        if isReady {
+            statusMessage = shortcutsEnabledMessage
             rebuildMenu()
             closePermissionGuide()
             return
         }
-
-        guard hotKeys.registerAll({ [weak self] preset in
-            let pressedAt = Date()
-            DispatchQueue.main.async { self?.perform(preset, pressedAt: pressedAt) }
-        }) else {
-            isReady = false
-            statusMessage = "快捷键注册失败"
-            rebuildMenu()
-            return
-        }
-        isReady = true
-        statusMessage = "快捷键已启用：Option + 1 / 2 / 3"
-        rebuildMenu()
+        registerConfiguredHotKeys()
         closePermissionGuide()
+    }
+
+    @discardableResult
+    private func registerConfiguredHotKeys() -> Bool {
+        let current = preferences.preferences
+        let succeeded = hotKeys.registerAll(
+            count: current.presets.count,
+            modifier: current.modifier
+        ) { [weak self] presetNumber in
+            let pressedAt = Date()
+            DispatchQueue.main.async {
+                self?.perform(number: presetNumber, pressedAt: pressedAt)
+            }
+        }
+        isReady = succeeded
+        statusMessage = succeeded ? shortcutsEnabledMessage : "快捷键注册失败"
+        rebuildMenu()
+        return succeeded
+    }
+
+    private var shortcutsEnabledMessage: String {
+        let modifier = preferences.preferences.modifier.symbol
+        let count = preferences.preferences.presets.count
+        return "快捷键已启用：\(modifier) + 1–\(count)"
     }
 
     private func leaveReadyState() {
         guard isReady else { return }
-        hotKeys.unregisterAll()
+        hotKeys.unregisterLayoutHotKeys()
         layouts.clearState()
         isReady = false
     }
@@ -165,7 +204,29 @@ final class AppController: NSObject, NSApplicationDelegate {
         permissionWindow = nil
     }
 
-    private func requestAccessibilityAccess() {
+    private func openPreferencesWindow() {
+        if let preferencesWindow {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            preferencesWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 620),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "pile 设置"
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.contentView = NSHostingView(rootView: SettingsView(store: preferences))
+        window.center()
+        preferencesWindow = window
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func requestAccessibilityAccess() {
         if accessibility.isTrusted(prompt: true) {
             enterReadyState()
         } else {
@@ -181,16 +242,24 @@ final class AppController: NSObject, NSApplicationDelegate {
     }
 
     @objc private func selectPreset(_ sender: NSMenuItem) {
-        guard let preset = LayoutPreset(rawValue: sender.tag) else { return }
-        perform(preset, pressedAt: Date())
+        perform(number: sender.tag, pressedAt: Date())
     }
 
     @objc private func openPermissionGuide() {
         showPermissionGuide()
     }
 
+    @objc private func openPreferences() {
+        openPreferencesWindow()
+    }
+
     @objc private func quit() {
         NSApplication.shared.terminate(nil)
+    }
+
+    private func perform(number: Int, pressedAt: Date) {
+        guard let preset = preferences.layoutPreset(number: number) else { return }
+        perform(preset, pressedAt: pressedAt)
     }
 
     private func perform(_ preset: LayoutPreset, pressedAt: Date) {

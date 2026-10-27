@@ -32,35 +32,24 @@ struct WindowFrame: Equatable, Sendable {
     }
 }
 
-enum LayoutPreset: Int, CaseIterable, Sendable {
-    case compact = 1
-    case balanced = 2
-    case nearFullScreen = 3
+struct LayoutPreset: Equatable, Sendable {
+    let number: Int
+    let widthPercent: Double
+    let heightPercent: Double
 
-    var widthScale: Double {
-        switch self {
-        case .compact: 0.60
-        case .balanced: 0.72
-        case .nearFullScreen: 0.98
-        }
+    var widthScale: Double { widthPercent / 100 }
+    var heightScale: Double { heightPercent / 100 }
+
+    func shortcutTitle(for modifier: HotKeyModifier) -> String {
+        "\(modifier.symbol) + \(number)"
     }
-
-    var heightScale: Double {
-        switch self {
-        case .compact: 0.72
-        case .balanced: 0.78
-        case .nearFullScreen: 0.98
-        }
-    }
-
-    var shortcutTitle: String { "Option+\(rawValue)" }
 
     var actionTitle: String {
-        switch self {
-        case .compact: "Center 60% × 72%"
-        case .balanced: "Center 72% × 78%"
-        case .nearFullScreen: "Center 98% × 98%"
-        }
+        "居中 \(Self.format(widthPercent))% × \(Self.format(heightPercent))%"
+    }
+
+    private static func format(_ value: Double) -> String {
+        value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
     }
 }
 
