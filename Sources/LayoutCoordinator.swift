@@ -40,11 +40,12 @@ final class LayoutCoordinator {
         }
 
         let existing = statesByScreen[screen.uuid]
-        let shouldCollapse = WindowGeometry.isIntact(
-            state: existing,
-            windows: windows,
-            screen: screen
-        )
+        let shouldCollapse = existing?.preset == preset
+            && WindowGeometry.isIntact(
+                state: existing,
+                windows: windows,
+                screen: screen
+            )
         pendingPress = PendingPress(
             preset: preset,
             focusedWindowID: focusedWindowID,

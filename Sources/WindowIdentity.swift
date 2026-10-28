@@ -55,3 +55,9 @@ struct WindowFrameUpdate: Sendable {
     let window: WindowIdentity
     let frame: WindowFrame
 }
+
+enum WindowFrameOperationResult: Sendable {
+    case completed
+    case failed
+    case cancelled
+}

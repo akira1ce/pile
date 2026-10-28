@@ -13,6 +13,8 @@ final class AccessibilityWindowService: @unchecked Sendable {
     private let messagingTimeout: Float = 0.35
     private let animationStepCount = 12
     private let animationStepInterval: TimeInterval = 1.0 / 60.0
+    private var activeAnimationID: UUID?
+    private var activeAnimationCompletion: (@Sendable (WindowFrameOperationResult) -> Void)?
 
     func isTrusted(prompt: Bool = false) -> Bool {
         let options: CFDictionary? = prompt
@@ -170,41 +172,51 @@ final class AccessibilityWindowService: @unchecked Sendable {
         }
     }
 
-    func setFrame(_ frame: WindowFrame, for window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
+    func setFrame(
+        _ frame: WindowFrame,
+        for window: WindowIdentity,
+        completion: @escaping @Sendable (WindowFrameOperationResult) -> Void
+    ) {
         setFrames([WindowFrameUpdate(window: window, frame: frame)], animated: false, completion: completion)
     }
 
     func setFrames(
         _ updates: [WindowFrameUpdate],
         animated: Bool,
-        completion: @escaping @Sendable (Bool) -> Void
+        completion: @escaping @Sendable (WindowFrameOperationResult) -> Void
     ) {
-        guard !updates.isEmpty,
-              updates.allSatisfy({ $0.window.processID != ProcessInfo.processInfo.processIdentifier }) else {
-            completion(updates.isEmpty)
+        guard !updates.isEmpty else {
+            completion(.completed)
+            return
+        }
+        guard updates.allSatisfy({ $0.window.processID != ProcessInfo.processInfo.processIdentifier }) else {
+            completion(.failed)
             return
         }
 
         queue.async {
-            let startingFrames = animated
-                ? updates.map { self.frame(of: $0.window.accessibilityElement) }
-                : []
-            if animated, startingFrames.contains(where: { $0 == nil }) {
-                completion(false)
-                return
-            }
-
+            self.cancelActiveAnimation()
             var succeeded = true
             for update in updates {
                 succeeded = self.setSize(update.frame, on: update.window.accessibilityElement) && succeeded
             }
 
+            guard animated else {
+                for update in updates {
+                    succeeded = self.setPosition(update.frame, on: update.window.accessibilityElement) && succeeded
+                }
+                Thread.sleep(forTimeInterval: 0.05)
+                completion(self.verify(updates) && succeeded ? .completed : .failed)
+                return
+            }
+
+            let startingFrames = updates.map { self.frame(of: $0.window.accessibilityElement) }
+            guard !startingFrames.contains(where: { $0 == nil }) else {
+                completion(.failed)
+                return
+            }
             let starts = startingFrames.compactMap { $0 }
             let frameQueues = updates.enumerated().map { index, update -> PositionFrameQueue in
-                guard animated else {
-                    return PositionFrameQueue(window: update.window, frames: [update.frame])
-                }
-
                 let start = starts[index]
                 guard abs(start.x - update.frame.x) > 0.5 || abs(start.y - update.frame.y) > 0.5 else {
                     return PositionFrameQueue(window: update.window, frames: [update.frame])
@@ -220,27 +232,77 @@ final class AccessibilityWindowService: @unchecked Sendable {
             }
 
             let tickCount = frameQueues.map { $0.frames.count }.max() ?? 0
-            for tick in 0..<tickCount {
-                for frameQueue in frameQueues where tick < frameQueue.frames.count {
-                    succeeded = self.setPosition(
-                        frameQueue.frames[tick],
-                        on: frameQueue.window.accessibilityElement
-                    ) && succeeded
-                }
-                if animated, tick + 1 < tickCount {
-                    Thread.sleep(forTimeInterval: self.animationStepInterval)
-                }
-            }
+            let animationID = UUID()
+            self.activeAnimationID = animationID
+            self.activeAnimationCompletion = completion
+            self.runAnimationTick(
+                animationID: animationID,
+                updates: updates,
+                frameQueues: frameQueues,
+                tick: 0,
+                tickCount: tickCount,
+                succeeded: succeeded
+            )
+        }
+    }
 
-            Thread.sleep(forTimeInterval: 0.05)
-            for update in updates {
-                guard let observed = self.frame(of: update.window.accessibilityElement) else {
-                    succeeded = false
-                    continue
-                }
-                succeeded = observed.isApproximatelyEqual(to: update.frame, tolerance: 4) && succeeded
+    private func runAnimationTick(
+        animationID: UUID,
+        updates: [WindowFrameUpdate],
+        frameQueues: [PositionFrameQueue],
+        tick: Int,
+        tickCount: Int,
+        succeeded: Bool
+    ) {
+        guard activeAnimationID == animationID else { return }
+        var succeeded = succeeded
+        for frameQueue in frameQueues where tick < frameQueue.frames.count {
+            succeeded = setPosition(
+                frameQueue.frames[tick],
+                on: frameQueue.window.accessibilityElement
+            ) && succeeded
+        }
+
+        if tick + 1 < tickCount {
+            let succeededForNextTick = succeeded
+            queue.asyncAfter(deadline: .now() + animationStepInterval) { [weak self] in
+                self?.runAnimationTick(
+                    animationID: animationID,
+                    updates: updates,
+                    frameQueues: frameQueues,
+                    tick: tick + 1,
+                    tickCount: tickCount,
+                    succeeded: succeededForNextTick
+                )
             }
-            completion(succeeded)
+        } else {
+            let finalStepSucceeded = succeeded
+            queue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                self?.finishAnimation(animationID: animationID, updates: updates, succeeded: finalStepSucceeded)
+            }
+        }
+    }
+
+    private func finishAnimation(animationID: UUID, updates: [WindowFrameUpdate], succeeded: Bool) {
+        guard activeAnimationID == animationID else { return }
+        let completion = activeAnimationCompletion
+        activeAnimationID = nil
+        activeAnimationCompletion = nil
+        completion?(verify(updates) && succeeded ? .completed : .failed)
+    }
+
+    private func cancelActiveAnimation() {
+        guard activeAnimationID != nil else { return }
+        let completion = activeAnimationCompletion
+        activeAnimationID = nil
+        activeAnimationCompletion = nil
+        completion?(.cancelled)
+    }
+
+    private func verify(_ updates: [WindowFrameUpdate]) -> Bool {
+        updates.allSatisfy { update in
+            guard let observed = frame(of: update.window.accessibilityElement) else { return false }
+            return observed.isApproximatelyEqual(to: update.frame, tolerance: 4)
         }
     }
 

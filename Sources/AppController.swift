@@ -440,10 +440,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             accessibility.setFrames(
                 [WindowFrameUpdate(window: window, frame: frame)],
                 animated: preferences.preferences.animationsEnabled
-            ) { [weak self] succeeded in
+            ) { [weak self] result in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    self.statusMessage = succeeded ? "窗口已居中" : "窗口未能调整"
+                    switch result {
+                    case .completed:
+                        self.statusMessage = "窗口已居中"
+                    case .failed:
+                        self.statusMessage = "窗口未能调整"
+                    case .cancelled:
+                        return
+                    }
                     self.rebuildMenu()
                 }
             }
@@ -456,16 +463,19 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             accessibility.setFrames(
                 updates,
                 animated: preferences.preferences.animationsEnabled
-            ) { [weak self] succeeded in
+            ) { [weak self] result in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    if succeeded {
+                    switch result {
+                    case .completed:
                         self.layouts.recordApplied(resultingState)
                         let focusedWindow = windowsByID[focused.id] ?? focused
                         self.accessibility.raise(focusedWindow) { _ in }
                         self.statusMessage = resultingState.mode == .stacked ? "窗口已堆叠" : "堆叠已收起"
-                    } else {
+                    case .failed:
                         self.statusMessage = "部分窗口未能调整"
+                    case .cancelled:
+                        return
                     }
                     self.rebuildMenu()
                 }
