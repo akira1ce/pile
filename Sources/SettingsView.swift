@@ -27,7 +27,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 5) {
             Text("快捷键与布局")
                 .font(.system(size: 23, weight: .semibold))
-            Text("调整全局快捷键和每个窗口尺寸预设。修改后立即生效。")
+            Text("调整快捷键、窗口预设和堆叠行为。修改后立即生效。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -47,6 +47,21 @@ struct SettingsView: View {
                 modifierPicker
                     .frame(width: 190)
             }
+
+            Divider()
+
+            Toggle(isOn: Binding(
+                get: { store.preferences.animationsEnabled },
+                set: { store.setAnimationsEnabled($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Label("窗口动画", systemImage: "move.3d")
+                    Text("居中和堆叠时平滑移动窗口，不动画缩放")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
 
             Divider()
 

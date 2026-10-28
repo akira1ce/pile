@@ -50,3 +50,8 @@ final class WindowIdentity: @unchecked Sendable {
         )
     }
 }
+
+struct WindowFrameUpdate: Sendable {
+    let window: WindowIdentity
+    let frame: WindowFrame
+}

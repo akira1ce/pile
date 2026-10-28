@@ -406,6 +406,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let window = preferencesWindow, window.isVisible else { return false }
         guard !isSettingsClosePromptPresented else { return true }
 
+        let previousStatusMessage = statusMessage
         isSettingsClosePromptPresented = true
         statusMessage = "请先关闭 pile 设置窗口"
         rebuildMenu()
@@ -416,7 +417,6 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alert.informativeText = "关闭设置窗口后，再使用居中或堆叠快捷键。"
         alert.addButton(withTitle: "关闭设置")
         alert.addButton(withTitle: "取消")
-        let previousStatusMessage = statusMessage
         NSApplication.shared.activate(ignoringOtherApps: true)
         alert.beginSheetModal(for: window) { [weak self, weak window] response in
             Task { @MainActor [weak self, weak window] in
@@ -437,7 +437,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         switch command {
         case let .center(focusedWindowID, frame):
             guard let window = windowsByID[focusedWindowID] else { return }
-            accessibility.setFrame(frame, for: window) { [weak self] succeeded in
+            accessibility.setFrames(
+                [WindowFrameUpdate(window: window, frame: frame)],
+                animated: preferences.preferences.animationsEnabled
+            ) { [weak self] succeeded in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.statusMessage = succeeded ? "窗口已居中" : "窗口未能调整"
@@ -445,54 +448,27 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
         case let .arrange(targets, resultingState):
-            let reverseTargets = Array(targets.reversed())
-            applyTarget(reverseTargets, at: 0, windowsByID: windowsByID) { [weak self] succeeded in
-                guard let self else { return }
-                if succeeded {
-                    self.layouts.recordApplied(resultingState)
-                    let focusedWindow = windowsByID[focused.id] ?? focused
-                    self.accessibility.raise(focusedWindow) { _ in }
-                    self.statusMessage = resultingState.mode == .stacked ? "窗口已堆叠" : "堆叠已收起"
-                } else {
-                    self.statusMessage = "部分窗口未能调整"
-                }
-                self.rebuildMenu()
+            let updates = targets.reversed().compactMap { target -> WindowFrameUpdate? in
+                guard let window = windowsByID[target.windowID] else { return nil }
+                return WindowFrameUpdate(window: window, frame: target.frame)
             }
-        }
-    }
-
-    private func applyTarget(
-        _ targets: [WindowTarget],
-        at index: Int,
-        windowsByID: [String: WindowIdentity],
-        allSucceeded: Bool = true,
-        completion: @MainActor @Sendable @escaping (Bool) -> Void
-    ) {
-        guard index < targets.count else {
-            completion(allSucceeded)
-            return
-        }
-        let target = targets[index]
-        guard let window = windowsByID[target.windowID] else {
-            applyTarget(
-                targets,
-                at: index + 1,
-                windowsByID: windowsByID,
-                allSucceeded: false,
-                completion: completion
-            )
-            return
-        }
-        accessibility.setFrame(target.frame, for: window) { [weak self] succeeded in
-            Task { @MainActor [weak self] in
-                guard let self else { completion(false); return }
-                self.applyTarget(
-                    targets,
-                    at: index + 1,
-                    windowsByID: windowsByID,
-                    allSucceeded: allSucceeded && succeeded,
-                    completion: completion
-                )
+            guard updates.count == targets.count else { return }
+            accessibility.setFrames(
+                updates,
+                animated: preferences.preferences.animationsEnabled
+            ) { [weak self] succeeded in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if succeeded {
+                        self.layouts.recordApplied(resultingState)
+                        let focusedWindow = windowsByID[focused.id] ?? focused
+                        self.accessibility.raise(focusedWindow) { _ in }
+                        self.statusMessage = resultingState.mode == .stacked ? "窗口已堆叠" : "堆叠已收起"
+                    } else {
+                        self.statusMessage = "部分窗口未能调整"
+                    }
+                    self.rebuildMenu()
+                }
             }
         }
     }

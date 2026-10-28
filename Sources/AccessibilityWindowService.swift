@@ -4,8 +4,15 @@ import CoreGraphics
 import Foundation
 
 final class AccessibilityWindowService: @unchecked Sendable {
+    private struct PositionFrameQueue {
+        let window: WindowIdentity
+        let frames: [WindowFrame]
+    }
+
     private let queue = DispatchQueue(label: "com.akira1ce.pile.accessibility", qos: .userInitiated)
     private let messagingTimeout: Float = 0.35
+    private let animationStepCount = 12
+    private let animationStepInterval: TimeInterval = 1.0 / 60.0
 
     func isTrusted(prompt: Bool = false) -> Bool {
         let options: CFDictionary? = prompt
@@ -164,37 +171,97 @@ final class AccessibilityWindowService: @unchecked Sendable {
     }
 
     func setFrame(_ frame: WindowFrame, for window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
-        guard window.processID != ProcessInfo.processInfo.processIdentifier else {
-            completion(false)
+        setFrames([WindowFrameUpdate(window: window, frame: frame)], animated: false, completion: completion)
+    }
+
+    func setFrames(
+        _ updates: [WindowFrameUpdate],
+        animated: Bool,
+        completion: @escaping @Sendable (Bool) -> Void
+    ) {
+        guard !updates.isEmpty,
+              updates.allSatisfy({ $0.window.processID != ProcessInfo.processInfo.processIdentifier }) else {
+            completion(updates.isEmpty)
             return
         }
 
         queue.async {
-            var point = CGPoint(x: frame.x, y: frame.y)
-            var size = CGSize(width: frame.width, height: frame.height)
-            guard let positionValue = AXValueCreate(.cgPoint, &point),
-                  let sizeValue = AXValueCreate(.cgSize, &size),
-                  AXUIElementSetAttributeValue(
-                    window.accessibilityElement,
-                    kAXPositionAttribute as CFString,
-                    positionValue
-                  ) == .success,
-                  AXUIElementSetAttributeValue(
-                    window.accessibilityElement,
-                    kAXSizeAttribute as CFString,
-                    sizeValue
-                  ) == .success else {
+            let startingFrames = animated
+                ? updates.map { self.frame(of: $0.window.accessibilityElement) }
+                : []
+            if animated, startingFrames.contains(where: { $0 == nil }) {
                 completion(false)
                 return
             }
 
-            Thread.sleep(forTimeInterval: 0.05)
-            guard let observed = self.frame(of: window.accessibilityElement) else {
-                completion(false)
-                return
+            var succeeded = true
+            for update in updates {
+                succeeded = self.setSize(update.frame, on: update.window.accessibilityElement) && succeeded
             }
-            completion(observed.isApproximatelyEqual(to: frame, tolerance: 4))
+
+            let starts = startingFrames.compactMap { $0 }
+            let frameQueues = updates.enumerated().map { index, update -> PositionFrameQueue in
+                guard animated else {
+                    return PositionFrameQueue(window: update.window, frames: [update.frame])
+                }
+
+                let start = starts[index]
+                guard abs(start.x - update.frame.x) > 0.5 || abs(start.y - update.frame.y) > 0.5 else {
+                    return PositionFrameQueue(window: update.window, frames: [update.frame])
+                }
+
+                let frames = WindowFrameSequence.positionFrames(
+                    from: start,
+                    to: update.frame,
+                    steps: self.animationStepCount,
+                    curve: .easeOut
+                )
+                return PositionFrameQueue(window: update.window, frames: frames)
+            }
+
+            let tickCount = frameQueues.map { $0.frames.count }.max() ?? 0
+            for tick in 0..<tickCount {
+                for frameQueue in frameQueues where tick < frameQueue.frames.count {
+                    succeeded = self.setPosition(
+                        frameQueue.frames[tick],
+                        on: frameQueue.window.accessibilityElement
+                    ) && succeeded
+                }
+                if animated, tick + 1 < tickCount {
+                    Thread.sleep(forTimeInterval: self.animationStepInterval)
+                }
+            }
+
+            Thread.sleep(forTimeInterval: 0.05)
+            for update in updates {
+                guard let observed = self.frame(of: update.window.accessibilityElement) else {
+                    succeeded = false
+                    continue
+                }
+                succeeded = observed.isApproximatelyEqual(to: update.frame, tolerance: 4) && succeeded
+            }
+            completion(succeeded)
         }
+    }
+
+    private func setSize(_ frame: WindowFrame, on element: AXUIElement) -> Bool {
+        var size = CGSize(width: frame.width, height: frame.height)
+        guard let sizeValue = AXValueCreate(.cgSize, &size) else { return false }
+        return AXUIElementSetAttributeValue(
+            element,
+            kAXSizeAttribute as CFString,
+            sizeValue
+        ) == .success
+    }
+
+    private func setPosition(_ frame: WindowFrame, on element: AXUIElement) -> Bool {
+        var point = CGPoint(x: frame.x, y: frame.y)
+        guard let positionValue = AXValueCreate(.cgPoint, &point) else { return false }
+        return AXUIElementSetAttributeValue(
+            element,
+            kAXPositionAttribute as CFString,
+            positionValue
+        ) == .success
     }
 
     func raise(_ window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {

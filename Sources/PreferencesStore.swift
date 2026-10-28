@@ -43,17 +43,20 @@ struct WindowPresetSettings: Codable, Equatable, Identifiable, Sendable {
 struct AppPreferences: Codable, Equatable, Sendable {
     var modifier: HotKeyModifier
     var stackGap: Double
+    var animationsEnabled: Bool
     var presets: [WindowPresetSettings]
 
     private enum CodingKeys: String, CodingKey {
         case modifier
         case stackGap
+        case animationsEnabled
         case presets
     }
 
-    init(modifier: HotKeyModifier, stackGap: Double, presets: [WindowPresetSettings]) {
+    init(modifier: HotKeyModifier, stackGap: Double, animationsEnabled: Bool = true, presets: [WindowPresetSettings]) {
         self.modifier = modifier
         self.stackGap = stackGap
+        self.animationsEnabled = animationsEnabled
         self.presets = presets
     }
 
@@ -61,6 +64,7 @@ struct AppPreferences: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         modifier = try container.decodeIfPresent(HotKeyModifier.self, forKey: .modifier) ?? .option
         stackGap = try container.decodeIfPresent(Double.self, forKey: .stackGap) ?? 10
+        animationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .animationsEnabled) ?? true
         presets = try container.decode([WindowPresetSettings].self, forKey: .presets)
     }
 
@@ -126,6 +130,12 @@ final class PreferencesStore: ObservableObject {
     func setStackGap(_ value: Double) {
         var updated = preferences
         updated.stackGap = Self.clampedStackGap(value)
+        save(updated)
+    }
+
+    func setAnimationsEnabled(_ enabled: Bool) {
+        var updated = preferences
+        updated.animationsEnabled = enabled
         save(updated)
     }
 
