@@ -10,6 +10,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var permissionWindow: NSWindow?
     private var preferencesWindow: NSWindow?
+    private var isSettingsClosePromptPresented = false
     private var observers: [NSObjectProtocol] = []
     private var isReady = false
     private var statusMessage = "正在检查辅助功能权限"
@@ -344,6 +345,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func perform(_ preset: LayoutPreset, pressedAt: Date) {
+        guard !promptToCloseSettingsWindow() else { return }
+
         guard accessibility.isTrusted() else {
             leaveReadyState()
             statusMessage = "需要辅助功能权限"
@@ -397,6 +400,36 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 }
             }
         }
+    }
+
+    private func promptToCloseSettingsWindow() -> Bool {
+        guard let window = preferencesWindow, window.isVisible else { return false }
+        guard !isSettingsClosePromptPresented else { return true }
+
+        isSettingsClosePromptPresented = true
+        statusMessage = "请先关闭 pile 设置窗口"
+        rebuildMenu()
+
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "请先关闭 pile 设置窗口"
+        alert.informativeText = "关闭设置窗口后，再使用居中或堆叠快捷键。"
+        alert.addButton(withTitle: "关闭设置")
+        alert.addButton(withTitle: "取消")
+        let previousStatusMessage = statusMessage
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        alert.beginSheetModal(for: window) { [weak self, weak window] response in
+            Task { @MainActor [weak self, weak window] in
+                guard let self else { return }
+                self.isSettingsClosePromptPresented = false
+                if response == .alertFirstButtonReturn {
+                    window?.performClose(nil)
+                }
+                self.statusMessage = previousStatusMessage
+                self.rebuildMenu()
+            }
+        }
+        return true
     }
 
     private func apply(_ command: LayoutCommand, windows: [WindowIdentity], focused: WindowIdentity) {

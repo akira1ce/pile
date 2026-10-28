@@ -45,6 +45,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
             if let frontmostProcessID, !processIDs.contains(frontmostProcessID) {
                 processIDs.append(frontmostProcessID)
             }
+            processIDs.removeAll { $0 == ProcessInfo.processInfo.processIdentifier }
 
             let cgWindows = self.visibleCGWindows()
             for processID in processIDs {
@@ -125,7 +126,11 @@ final class AccessibilityWindowService: @unchecked Sendable {
             }
 
             let cgWindows = self.visibleCGWindows()
-                .filter { $0.layer == 0 && $0.processID > 0 }
+                .filter {
+                    $0.layer == 0
+                        && $0.processID > 0
+                        && $0.processID != ProcessInfo.processInfo.processIdentifier
+                }
                 .filter { self.screenUUID(for: $0.frame, screens: screens) == screenGeometry.uuid }
 
             var axWindowsByProcess: [pid_t: [WindowIdentity]] = [:]
@@ -159,6 +164,11 @@ final class AccessibilityWindowService: @unchecked Sendable {
     }
 
     func setFrame(_ frame: WindowFrame, for window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
+        guard window.processID != ProcessInfo.processInfo.processIdentifier else {
+            completion(false)
+            return
+        }
+
         queue.async {
             var point = CGPoint(x: frame.x, y: frame.y)
             var size = CGSize(width: frame.width, height: frame.height)
@@ -188,6 +198,11 @@ final class AccessibilityWindowService: @unchecked Sendable {
     }
 
     func raise(_ window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
+        guard window.processID != ProcessInfo.processInfo.processIdentifier else {
+            completion(false)
+            return
+        }
+
         queue.async {
             completion(AXUIElementPerformAction(window.accessibilityElement, kAXRaiseAction as CFString) == .success)
         }
