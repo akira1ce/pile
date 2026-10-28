@@ -24,7 +24,7 @@ enum WindowAnimationCurve: Sendable {
 }
 
 enum WindowFrameSequence {
-    static func positionFrames(
+    static func frameSequence(
         from start: WindowFrame,
         to target: WindowFrame,
         steps: Int,
@@ -37,8 +37,8 @@ enum WindowFrameSequence {
             return WindowFrame(
                 x: start.x + (target.x - start.x) * fraction,
                 y: start.y + (target.y - start.y) * fraction,
-                width: target.width,
-                height: target.height
+                width: start.width + (target.width - start.width) * fraction,
+                height: start.height + (target.height - start.height) * fraction
             )
         }
     }

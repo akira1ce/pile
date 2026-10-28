@@ -196,12 +196,12 @@ final class AccessibilityWindowService: @unchecked Sendable {
 
         queue.async {
             self.cancelActiveAnimation()
-            var succeeded = true
-            for update in updates {
-                succeeded = self.setSize(update.frame, on: update.window.accessibilityElement) && succeeded
-            }
 
             guard animated else {
+                var succeeded = true
+                for update in updates {
+                    succeeded = self.setSize(update.frame, on: update.window.accessibilityElement) && succeeded
+                }
                 for update in updates {
                     succeeded = self.setPosition(update.frame, on: update.window.accessibilityElement) && succeeded
                 }
@@ -210,6 +210,8 @@ final class AccessibilityWindowService: @unchecked Sendable {
                 return
             }
 
+            // Read the untouched frames first so size and position animate together
+            // from where each window actually is, instead of resizing in place then sliding.
             let startingFrames = updates.map { self.frame(of: $0.window.accessibilityElement) }
             guard !startingFrames.contains(where: { $0 == nil }) else {
                 completion(.failed)
@@ -218,11 +220,11 @@ final class AccessibilityWindowService: @unchecked Sendable {
             let starts = startingFrames.compactMap { $0 }
             let frameQueues = updates.enumerated().map { index, update -> PositionFrameQueue in
                 let start = starts[index]
-                guard abs(start.x - update.frame.x) > 0.5 || abs(start.y - update.frame.y) > 0.5 else {
+                guard !start.isApproximatelyEqual(to: update.frame, tolerance: 0.5) else {
                     return PositionFrameQueue(window: update.window, frames: [update.frame])
                 }
 
-                let frames = WindowFrameSequence.positionFrames(
+                let frames = WindowFrameSequence.frameSequence(
                     from: start,
                     to: update.frame,
                     steps: self.animationStepCount,
@@ -241,7 +243,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
                 frameQueues: frameQueues,
                 tick: 0,
                 tickCount: tickCount,
-                succeeded: succeeded
+                succeeded: true
             )
         }
     }
@@ -257,10 +259,10 @@ final class AccessibilityWindowService: @unchecked Sendable {
         guard activeAnimationID == animationID else { return }
         var succeeded = succeeded
         for frameQueue in frameQueues where tick < frameQueue.frames.count {
-            succeeded = setPosition(
-                frameQueue.frames[tick],
-                on: frameQueue.window.accessibilityElement
-            ) && succeeded
+            let frame = frameQueue.frames[tick]
+            let element = frameQueue.window.accessibilityElement
+            succeeded = setSize(frame, on: element) && succeeded
+            succeeded = setPosition(frame, on: element) && succeeded
         }
 
         if tick + 1 < tickCount {
