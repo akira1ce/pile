@@ -191,7 +191,6 @@ enum WindowGeometry {
         tolerance: Double = 4
     ) -> Bool {
         guard let state,
-              state.mode == .stacked,
               state.screenUUID == screen.uuid,
               state.orderedWindowIDs.count == windows.count,
               Set(state.orderedWindowIDs) == Set(windows.map(\.id)),
@@ -203,7 +202,7 @@ enum WindowGeometry {
                 focusedWindowID: state.orderedWindowIDs[0],
                 preset: state.preset,
                 screen: screen,
-                mode: .stacked
+                mode: state.mode
               ) else { return false }
 
         let currentByID = Dictionary(uniqueKeysWithValues: windows.map { ($0.id, $0.frame) })

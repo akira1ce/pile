@@ -471,7 +471,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         self.layouts.recordApplied(resultingState)
                         let focusedWindow = windowsByID[focused.id] ?? focused
                         self.accessibility.raise(focusedWindow) { _ in }
-                        self.statusMessage = resultingState.mode == .stacked ? "窗口已堆叠" : "堆叠已收起"
+                        self.statusMessage = resultingState.mode == .stacked ? "窗口已堆叠" : "窗口已居中收起"
                     case .failed:
                         self.statusMessage = "部分窗口未能调整"
                     case .cancelled:

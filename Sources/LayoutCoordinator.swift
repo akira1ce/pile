@@ -4,7 +4,7 @@ final class LayoutCoordinator {
     private struct PendingPress {
         let preset: LayoutPreset
         let focusedWindowID: String
-        let shouldCollapse: Bool
+        let shouldStack: Bool
         let deadline: Date
     }
 
@@ -28,7 +28,7 @@ final class LayoutCoordinator {
            pendingPress.focusedWindowID == focusedWindowID,
            pendingPress.deadline >= now {
             self.pendingPress = nil
-            let mode: LayoutMode = pendingPress.shouldCollapse ? .overlap : .stacked
+            let mode: LayoutMode = pendingPress.shouldStack ? .stacked : .overlap
             guard let arrangement = WindowGeometry.arrangement(
                 windows: windows,
                 focusedWindowID: focusedWindowID,
@@ -39,8 +39,12 @@ final class LayoutCoordinator {
             return .arrange(targets: arrangement.targets, resultingState: arrangement.state)
         }
 
+        // Only an intact collapsed pile expands into a stack. Everything else —
+        // a neutral screen, an intact stack, or a layout the user has since
+        // disturbed — collapses, so the two pile modes alternate.
         let existing = statesByScreen[screen.uuid]
-        let shouldCollapse = existing?.preset == preset
+        let shouldStack = existing?.preset == preset
+            && existing?.mode == .overlap
             && WindowGeometry.isIntact(
                 state: existing,
                 windows: windows,
@@ -49,7 +53,7 @@ final class LayoutCoordinator {
         pendingPress = PendingPress(
             preset: preset,
             focusedWindowID: focusedWindowID,
-            shouldCollapse: shouldCollapse,
+            shouldStack: shouldStack,
             deadline: now.addingTimeInterval(0.45)
         )
         return .center(
