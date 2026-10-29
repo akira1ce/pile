@@ -7,6 +7,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
     private struct PositionFrameQueue {
         let window: WindowIdentity
         let frames: [WindowFrame]
+        let sizeChanged: Bool
     }
 
     private let queue = DispatchQueue(label: "com.akira1ce.pile.accessibility", qos: .userInitiated)
@@ -220,8 +221,10 @@ final class AccessibilityWindowService: @unchecked Sendable {
             let starts = startingFrames.compactMap { $0 }
             let frameQueues = updates.enumerated().map { index, update -> PositionFrameQueue in
                 let start = starts[index]
+                let sizeChanged = abs(start.width - update.frame.width) > 0.5
+                    || abs(start.height - update.frame.height) > 0.5
                 guard !start.isApproximatelyEqual(to: update.frame, tolerance: 0.5) else {
-                    return PositionFrameQueue(window: update.window, frames: [update.frame])
+                    return PositionFrameQueue(window: update.window, frames: [update.frame], sizeChanged: sizeChanged)
                 }
 
                 let frames = WindowFrameSequence.frameSequence(
@@ -230,7 +233,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
                     steps: self.animationStepCount,
                     curve: .easeOut
                 )
-                return PositionFrameQueue(window: update.window, frames: frames)
+                return PositionFrameQueue(window: update.window, frames: frames, sizeChanged: sizeChanged)
             }
 
             let tickCount = frameQueues.map { $0.frames.count }.max() ?? 0
@@ -261,8 +264,12 @@ final class AccessibilityWindowService: @unchecked Sendable {
         for frameQueue in frameQueues where tick < frameQueue.frames.count {
             let frame = frameQueue.frames[tick]
             let element = frameQueue.window.accessibilityElement
-            succeeded = setSize(frame, on: element) && succeeded
+            // Move first, then resize, both every tick so the frame animates smoothly.
+            // Windows whose size is unchanged skip the relayout entirely.
             succeeded = setPosition(frame, on: element) && succeeded
+            if frameQueue.sizeChanged {
+                succeeded = setSize(frame, on: element) && succeeded
+            }
         }
 
         if tick + 1 < tickCount {
