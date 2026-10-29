@@ -133,6 +133,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 item.tag = preset.number
                 menu.addItem(item)
             }
+
+            menu.addItem(.separator())
+            let pile = NSMenuItem(
+                title: "堆叠 / 收起",
+                action: #selector(togglePile),
+                keyEquivalent: "\t"
+            )
+            pile.keyEquivalentModifierMask = menuModifierFlags(for: preferences.preferences.modifier)
+            pile.target = self
+            menu.addItem(pile)
         } else {
             let item = NSMenuItem(title: "打开权限引导…", action: #selector(openPermissionGuide), keyEquivalent: "")
             item.target = self
@@ -153,14 +163,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func presetMenuTitle(for number: Int) -> String {
         let numerals = ["一", "二", "三", "四", "五"]
-        guard numerals.indices.contains(number - 1) else { return "堆\(number)" }
-        return "堆\(numerals[number - 1])"
+        guard numerals.indices.contains(number - 1) else { return "居中 \(number)" }
+        return "居中\(numerals[number - 1])"
     }
 
     private func menuModifierFlags(for modifier: HotKeyModifier) -> NSEvent.ModifierFlags {
         switch modifier {
         case .option: .option
-        case .command: .command
         case .control: .control
         case .shift: .shift
         }
@@ -229,11 +238,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let current = preferences.preferences
         let succeeded = hotKeys.registerAll(
             count: current.presets.count,
-            modifier: current.modifier
-        ) { [weak self] presetNumber in
-            let pressedAt = Date()
-            self?.perform(number: presetNumber, pressedAt: pressedAt)
-        }
+            modifier: current.modifier,
+            handler: { [weak self] presetNumber in
+                self?.center(presetNumber: presetNumber)
+            },
+            pileHandler: { [weak self] in
+                self?.pile()
+            }
+        )
         isReady = succeeded
         statusMessage = succeeded ? shortcutsEnabledMessage : "快捷键注册失败"
         rebuildMenu()
@@ -243,7 +255,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var shortcutsEnabledMessage: String {
         let modifier = preferences.preferences.modifier.symbol
         let count = preferences.preferences.presets.count
-        return "快捷键已启用：\(modifier) + 1–\(count)"
+        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + Tab 堆叠 / 收起"
     }
 
     private func leaveReadyState() {
@@ -324,7 +336,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func selectPreset(_ sender: NSMenuItem) {
-        perform(number: sender.tag, pressedAt: Date())
+        center(presetNumber: sender.tag)
+    }
+
+    @objc private func togglePile() {
+        pile()
     }
 
     @objc private func openPermissionGuide() {
@@ -339,12 +355,63 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApplication.shared.terminate(nil)
     }
 
-    private func perform(number: Int, pressedAt: Date) {
-        guard let preset = preferences.layoutPreset(number: number) else { return }
-        perform(preset, pressedAt: pressedAt)
+    private func center(presetNumber: Int) {
+        guard let preset = preferences.layoutPreset(number: presetNumber) else { return }
+        withAdjustableWindow { [weak self] focused, _, geometry in
+            guard let self else { return }
+            // Only the focused window is touched, so this skips the screen-wide
+            // enumeration the pile action needs.
+            self.apply(
+                self.layouts.centerCommand(
+                    focusedWindowID: focused.id,
+                    preset: preset,
+                    screen: geometry
+                ),
+                windows: [focused],
+                focused: focused
+            )
+        }
     }
 
-    private func perform(_ preset: LayoutPreset, pressedAt: Date) {
+    private func pile() {
+        withAdjustableWindow { [weak self] focused, screen, _ in
+            guard let self else { return }
+            let screenUUID = focused.screenUUID
+            self.accessibility.windows(on: screen, focusedWindowID: focused.id) { [weak self] visibleWindows in
+                Task { @MainActor [weak self] in
+                    guard let self,
+                          let current = NSScreen.screens.first(where: {
+                              ScreenGeometry(screen: $0)?.uuid == screenUUID
+                          }),
+                          let geometry = ScreenGeometry(screen: current) else { return }
+                    var windows = visibleWindows
+                    if !windows.contains(where: { $0.id == focused.id }) {
+                        windows.insert(focused, at: 0)
+                    }
+                    windows = windows.filter {
+                        $0.isStandard && !$0.isFullScreen && !$0.isMinimized && $0.screenUUID == screenUUID
+                    }
+                    guard let command = self.layouts.pileCommand(
+                        focusedWindow: focused.layoutWindow,
+                        screen: geometry,
+                        windows: windows.map(\.layoutWindow),
+                        stackGap: self.preferences.preferences.stackGap
+                    ) else {
+                        self.statusMessage = "当前没有可调整的窗口"
+                        self.rebuildMenu()
+                        return
+                    }
+                    self.apply(command, windows: windows, focused: focused)
+                }
+            }
+        }
+    }
+
+    /// Runs `body` with the focused window and its screen once permission and
+    /// window checks pass, reporting through the status item when they don't.
+    private func withAdjustableWindow(
+        _ body: @escaping @MainActor (WindowIdentity, NSScreen, ScreenGeometry) -> Void
+    ) {
         guard !promptToCloseSettingsWindow() else { return }
 
         guard accessibility.isTrusted() else {
@@ -364,40 +431,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                       !focused.isMinimized,
                       let screen = NSScreen.screens.first(where: {
                         ScreenGeometry(screen: $0)?.uuid == focused.screenUUID
-                      }) else {
+                      }),
+                      let geometry = ScreenGeometry(screen: screen) else {
                     self.statusMessage = "当前没有可调整的窗口"
                     self.rebuildMenu()
                     return
                 }
-                let screenUUID = focused.screenUUID
-                self.accessibility.windows(on: screen, focusedWindowID: focused.id) { [weak self] visibleWindows in
-                    Task { @MainActor [weak self] in
-                        guard let self,
-                              let screen = NSScreen.screens.first(where: {
-                                  ScreenGeometry(screen: $0)?.uuid == screenUUID
-                              }) else { return }
-                        var windows = visibleWindows
-                        if !windows.contains(where: { $0.id == focused.id }) {
-                            windows.insert(focused, at: 0)
-                        }
-                        windows = windows.filter {
-                            $0.isStandard && !$0.isFullScreen && !$0.isMinimized && $0.screenUUID == focused.screenUUID
-                        }
-                        guard let geometry = ScreenGeometry(screen: screen),
-                              let command = self.layouts.handle(
-                                preset: preset,
-                                focusedWindowID: focused.id,
-                                screen: geometry,
-                                windows: windows.map(\.layoutWindow),
-                                now: pressedAt
-                              ) else {
-                            self.statusMessage = "当前没有可调整的窗口"
-                            self.rebuildMenu()
-                            return
-                        }
-                        self.apply(command, windows: windows, focused: focused)
-                    }
-                }
+                body(focused, screen, geometry)
             }
         }
     }

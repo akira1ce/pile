@@ -3,7 +3,6 @@ import Foundation
 
 enum HotKeyModifier: String, CaseIterable, Codable, Identifiable, Sendable {
     case option
-    case command
     case control
     case shift
 
@@ -12,7 +11,6 @@ enum HotKeyModifier: String, CaseIterable, Codable, Identifiable, Sendable {
     var title: String {
         switch self {
         case .option: "Option (⌥)"
-        case .command: "Command (⌘)"
         case .control: "Control (⌃)"
         case .shift: "Shift (⇧)"
         }
@@ -21,7 +19,6 @@ enum HotKeyModifier: String, CaseIterable, Codable, Identifiable, Sendable {
     var symbol: String {
         switch self {
         case .option: "⌥"
-        case .command: "⌘"
         case .control: "⌃"
         case .shift: "⇧"
         }
@@ -62,7 +59,9 @@ struct AppPreferences: Codable, Equatable, Sendable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        modifier = try container.decodeIfPresent(HotKeyModifier.self, forKey: .modifier) ?? .option
+        // A stored modifier we no longer support (e.g. "command") must not take the
+        // rest of the preferences down with it, so fall back per-field.
+        modifier = (try? container.decode(HotKeyModifier.self, forKey: .modifier)) ?? .option
         stackGap = try container.decodeIfPresent(Double.self, forKey: .stackGap) ?? 10
         animationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .animationsEnabled) ?? true
         presets = try container.decode([WindowPresetSettings].self, forKey: .presets)
@@ -103,8 +102,7 @@ final class PreferencesStore: ObservableObject {
             LayoutPreset(
                 number: index + 1,
                 widthPercent: preset.widthPercent,
-                heightPercent: preset.heightPercent,
-                stackGap: preferences.stackGap
+                heightPercent: preset.heightPercent
             )
         }
     }
@@ -115,8 +113,7 @@ final class PreferencesStore: ObservableObject {
         return LayoutPreset(
             number: number,
             widthPercent: settings.widthPercent,
-            heightPercent: settings.heightPercent,
-            stackGap: preferences.stackGap
+            heightPercent: settings.heightPercent
         )
     }
 

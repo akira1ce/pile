@@ -23,6 +23,8 @@ private let pileWindowHotKeyHandler: EventHandlerProcPtr = { _, event, userData 
 
 @MainActor
 final class HotKeyManager {
+    private static let pileIdentifier: UInt32 = 0
+
     private let signature: OSType = 0x50494C45 // PILE
     private var eventHandler: EventHandlerRef?
     private var registrations: [UInt32: EventHotKeyRef] = [:]
@@ -31,36 +33,26 @@ final class HotKeyManager {
     func registerAll(
         count: Int,
         modifier: HotKeyModifier,
-        handler: @escaping @MainActor @Sendable (Int) -> Void
+        handler: @escaping @MainActor @Sendable (Int) -> Void,
+        pileHandler: @escaping @MainActor @Sendable () -> Void
     ) -> Bool {
         unregisterLayoutHotKeys()
         guard (1...5).contains(count) else { return false }
         guard installEventHandler() else { return false }
 
         for number in 1...count {
-            guard let keyCode = keyCode(for: number) else { continue }
-            let identifier = UInt32(number)
-            let hotKeyID = EventHotKeyID(signature: signature, id: identifier)
-            var reference: EventHotKeyRef?
-            let status = RegisterEventHotKey(
-                keyCode,
-                modifierFlags(for: modifier),
-                hotKeyID,
-                GetApplicationEventTarget(),
-                0,
-                &reference
-            )
-            guard status == noErr, let reference else {
+            guard let keyCode = keyCode(for: number),
+                  register(keyCode: keyCode, identifier: UInt32(number), modifier: modifier) else {
                 unregisterLayoutHotKeys()
                 return false
             }
-            registrations[identifier] = reference
-            callbacks[identifier] = { handler(number) }
+            callbacks[UInt32(number)] = { handler(number) }
         }
-        guard registrations.count == count else {
+        guard register(keyCode: UInt32(kVK_Tab), identifier: Self.pileIdentifier, modifier: modifier) else {
             unregisterLayoutHotKeys()
             return false
         }
+        callbacks[Self.pileIdentifier] = { pileHandler() }
         return true
     }
 
@@ -69,7 +61,7 @@ final class HotKeyManager {
             UnregisterEventHotKey(reference)
         }
         registrations.removeAll()
-        for identifier in 1...5 {
+        for identifier in 0...5 {
             callbacks.removeValue(forKey: UInt32(identifier))
         }
         if registrations.isEmpty, let eventHandler {
@@ -84,6 +76,21 @@ final class HotKeyManager {
 
     fileprivate func dispatch(_ identifier: UInt32) {
         callbacks[identifier]?()
+    }
+
+    private func register(keyCode: UInt32, identifier: UInt32, modifier: HotKeyModifier) -> Bool {
+        var reference: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            keyCode,
+            modifierFlags(for: modifier),
+            EventHotKeyID(signature: signature, id: identifier),
+            GetApplicationEventTarget(),
+            0,
+            &reference
+        )
+        guard status == noErr, let reference else { return false }
+        registrations[identifier] = reference
+        return true
     }
 
     private func installEventHandler() -> Bool {
@@ -117,7 +124,6 @@ final class HotKeyManager {
     private func modifierFlags(for modifier: HotKeyModifier) -> UInt32 {
         switch modifier {
         case .option: UInt32(optionKey)
-        case .command: UInt32(cmdKey)
         case .control: UInt32(controlKey)
         case .shift: UInt32(shiftKey)
         }

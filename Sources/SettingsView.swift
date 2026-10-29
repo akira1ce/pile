@@ -205,9 +205,11 @@ struct SettingsView: View {
             Label("快捷键", systemImage: "keyboard")
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(store.preferences.modifier.symbol) + 1–\(store.preferences.presets.count)")
+            Text("\(store.preferences.modifier.symbol) + 1–\(store.preferences.presets.count) 居中")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .monospacedDigit()
+            Text("\(store.preferences.modifier.symbol) + Tab 堆叠 / 收起")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 16)

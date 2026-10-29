@@ -36,7 +36,6 @@ struct LayoutPreset: Equatable, Sendable {
     let number: Int
     let widthPercent: Double
     let heightPercent: Double
-    let stackGap: Double
 
     var widthScale: Double { widthPercent / 100 }
     var heightScale: Double { heightPercent / 100 }
@@ -122,7 +121,8 @@ enum LayoutMode: String, Sendable {
 struct WindowLayoutState: Sendable {
     let mode: LayoutMode
     let orderedWindowIDs: [String]
-    let preset: LayoutPreset
+    let base: WindowFrame
+    let stackGap: Double
     let screenUUID: String
 }
 
@@ -149,21 +149,33 @@ enum WindowGeometry {
         )
     }
 
-    static func stackOffset(count: Int, preset: LayoutPreset) -> Double {
-        count >= 2 ? preset.stackGap : 0
+    /// Keeps a frame's size but recenters it on the screen, which is what the pile
+    /// action uses: the focused window's current size becomes the pile's size.
+    static func centeredFrame(sizeOf frame: WindowFrame, in screen: ScreenGeometry) -> WindowFrame {
+        let visible = screen.usableFrame
+        return WindowFrame(
+            x: visible.x + (visible.width - frame.width) / 2,
+            y: visible.y + (visible.height - frame.height) / 2,
+            width: frame.width,
+            height: frame.height
+        )
+    }
+
+    static func stackOffset(count: Int, gap: Double) -> Double {
+        count >= 2 ? gap : 0
     }
 
     static func arrangement(
         windows: [LayoutWindow],
         focusedWindowID: String,
-        preset: LayoutPreset,
+        base: WindowFrame,
+        stackGap: Double,
         screen: ScreenGeometry,
         mode: LayoutMode
     ) -> (targets: [WindowTarget], state: WindowLayoutState)? {
         guard !windows.isEmpty, windows.contains(where: { $0.id == focusedWindowID }) else { return nil }
 
-        let base = targetFrame(for: preset, in: screen)
-        let offset = mode == .stacked ? stackOffset(count: windows.count, preset: preset) : 0
+        let offset = mode == .stacked ? stackOffset(count: windows.count, gap: stackGap) : 0
         let targets = windows.enumerated().map { index, window in
             let shift = Double(index) * offset
             return WindowTarget(
@@ -179,7 +191,8 @@ enum WindowGeometry {
         return (targets, WindowLayoutState(
             mode: mode,
             orderedWindowIDs: windows.map(\.id),
-            preset: preset,
+            base: base,
+            stackGap: stackGap,
             screenUUID: screen.uuid
         ))
     }
@@ -200,7 +213,8 @@ enum WindowGeometry {
                         < (state.orderedWindowIDs.firstIndex(of: rhs.id) ?? .max)
                 },
                 focusedWindowID: state.orderedWindowIDs[0],
-                preset: state.preset,
+                base: state.base,
+                stackGap: state.stackGap,
                 screen: screen,
                 mode: state.mode
               ) else { return false }

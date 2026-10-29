@@ -1,65 +1,47 @@
 import Foundation
 
 final class LayoutCoordinator {
-    private struct PendingPress {
-        let preset: LayoutPreset
-        let focusedWindowID: String
-        let shouldStack: Bool
-        let deadline: Date
+    private var statesByScreen: [String: WindowLayoutState] = [:]
+
+    func centerCommand(
+        focusedWindowID: String,
+        preset: LayoutPreset,
+        screen: ScreenGeometry
+    ) -> LayoutCommand {
+        .center(
+            focusedWindowID: focusedWindowID,
+            frame: WindowGeometry.targetFrame(for: preset, in: screen)
+        )
     }
 
-    private var statesByScreen: [String: WindowLayoutState] = [:]
-    private var pendingPress: PendingPress?
-
-    func handle(
-        preset: LayoutPreset,
-        focusedWindowID: String,
+    func pileCommand(
+        focusedWindow: LayoutWindow,
         screen: ScreenGeometry,
         windows: [LayoutWindow],
-        now: Date = Date()
+        stackGap: Double
     ) -> LayoutCommand? {
-        guard windows.contains(where: { $0.id == focusedWindowID }) else {
-            pendingPress = nil
-            return nil
-        }
-
-        if let pendingPress,
-           pendingPress.preset == preset,
-           pendingPress.focusedWindowID == focusedWindowID,
-           pendingPress.deadline >= now {
-            self.pendingPress = nil
-            let mode: LayoutMode = pendingPress.shouldStack ? .stacked : .overlap
-            guard let arrangement = WindowGeometry.arrangement(
-                windows: windows,
-                focusedWindowID: focusedWindowID,
-                preset: preset,
-                screen: screen,
-                mode: mode
-            ) else { return nil }
-            return .arrange(targets: arrangement.targets, resultingState: arrangement.state)
-        }
+        guard windows.contains(where: { $0.id == focusedWindow.id }) else { return nil }
 
         // Only an intact collapsed pile expands into a stack. Everything else —
         // a neutral screen, an intact stack, or a layout the user has since
         // disturbed — collapses, so the two pile modes alternate.
         let existing = statesByScreen[screen.uuid]
-        let shouldStack = existing?.preset == preset
-            && existing?.mode == .overlap
-            && WindowGeometry.isIntact(
-                state: existing,
-                windows: windows,
-                screen: screen
-            )
-        pendingPress = PendingPress(
-            preset: preset,
-            focusedWindowID: focusedWindowID,
-            shouldStack: shouldStack,
-            deadline: now.addingTimeInterval(0.45)
-        )
-        return .center(
-            focusedWindowID: focusedWindowID,
-            frame: WindowGeometry.targetFrame(for: preset, in: screen)
-        )
+        let shouldStack = existing?.mode == .overlap
+            && WindowGeometry.isIntact(state: existing, windows: windows, screen: screen)
+
+        // The pile takes the size the focused window currently has, so centering at
+        // a preset and then piling reproduces that preset without recording it.
+        // Only the size is read, which keeps the base stable no matter which window
+        // of the pile happens to be focused.
+        guard let arrangement = WindowGeometry.arrangement(
+            windows: windows,
+            focusedWindowID: focusedWindow.id,
+            base: WindowGeometry.centeredFrame(sizeOf: focusedWindow.frame, in: screen),
+            stackGap: stackGap,
+            screen: screen,
+            mode: shouldStack ? .stacked : .overlap
+        ) else { return nil }
+        return .arrange(targets: arrangement.targets, resultingState: arrangement.state)
     }
 
     func recordApplied(_ state: WindowLayoutState) {
@@ -67,7 +49,6 @@ final class LayoutCoordinator {
     }
 
     func clearState() {
-        pendingPress = nil
         statesByScreen.removeAll()
     }
 }
