@@ -22,24 +22,3 @@ enum WindowAnimationCurve: Sendable {
         }
     }
 }
-
-enum WindowFrameSequence {
-    static func frameSequence(
-        from start: WindowFrame,
-        to target: WindowFrame,
-        steps: Int,
-        curve: WindowAnimationCurve
-    ) -> [WindowFrame] {
-        guard steps > 0 else { return [target] }
-
-        return (1...steps).map { step in
-            let fraction = curve.progress(at: Double(step) / Double(steps))
-            return WindowFrame(
-                x: start.x + (target.x - start.x) * fraction,
-                y: start.y + (target.y - start.y) * fraction,
-                width: start.width + (target.width - start.width) * fraction,
-                height: start.height + (target.height - start.height) * fraction
-            )
-        }
-    }
-}

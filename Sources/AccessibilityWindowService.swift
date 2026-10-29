@@ -2,18 +2,27 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import QuartzCore
 
 final class AccessibilityWindowService: @unchecked Sendable {
-    private struct PositionFrameQueue {
-        let window: WindowIdentity
-        let frames: [WindowFrame]
-        let sizeChanged: Bool
+    private struct AnimationPhase {
+        let updates: [WindowFrameUpdate]
+        let starts: [WindowFrame]
+        let targets: [WindowFrame]
+        let activeIndices: [Int]
+        let changesSize: Bool
+        let startTime: CFTimeInterval
+        let duration: TimeInterval
+        let tickCount: Int
+        let onFinish: @Sendable (Bool) -> Void
     }
 
     private let queue = DispatchQueue(label: "com.akira1ce.pile.accessibility", qos: .userInitiated)
     private let messagingTimeout: Float = 0.35
-    private let animationStepCount = 12
-    private let animationStepInterval: TimeInterval = 1.0 / 60.0
+    private let tickInterval: TimeInterval = 1.0 / 60.0
+    private let moveDuration: TimeInterval = 0.14
+    private let resizeDuration: TimeInterval = 0.16
+    private let settleDelay: TimeInterval = 0.05
     private var activeAnimationID: UUID?
     private var activeAnimationCompletion: (@Sendable (WindowFrameOperationResult) -> Void)?
 
@@ -206,89 +215,150 @@ final class AccessibilityWindowService: @unchecked Sendable {
                 for update in updates {
                     succeeded = self.setPosition(update.frame, on: update.window.accessibilityElement) && succeeded
                 }
-                Thread.sleep(forTimeInterval: 0.05)
+                Thread.sleep(forTimeInterval: self.settleDelay)
                 completion(self.verify(updates) && succeeded ? .completed : .failed)
                 return
             }
 
-            // Read the untouched frames first so size and position animate together
-            // from where each window actually is, instead of resizing in place then sliding.
+            // Read the untouched frames first so each phase starts from where the
+            // window actually is.
             let startingFrames = updates.map { self.frame(of: $0.window.accessibilityElement) }
             guard !startingFrames.contains(where: { $0 == nil }) else {
                 completion(.failed)
                 return
             }
-            let starts = startingFrames.compactMap { $0 }
-            let frameQueues = updates.enumerated().map { index, update -> PositionFrameQueue in
-                let start = starts[index]
-                let sizeChanged = abs(start.width - update.frame.width) > 0.5
-                    || abs(start.height - update.frame.height) > 0.5
-                guard !start.isApproximatelyEqual(to: update.frame, tolerance: 0.5) else {
-                    return PositionFrameQueue(window: update.window, frames: [update.frame], sizeChanged: sizeChanged)
-                }
 
-                let frames = WindowFrameSequence.frameSequence(
-                    from: start,
-                    to: update.frame,
-                    steps: self.animationStepCount,
-                    curve: .easeOut
-                )
-                return PositionFrameQueue(window: update.window, frames: frames, sizeChanged: sizeChanged)
-            }
-
-            let tickCount = frameQueues.map { $0.frames.count }.max() ?? 0
             let animationID = UUID()
             self.activeAnimationID = animationID
             self.activeAnimationCompletion = completion
-            self.runAnimationTick(
+            self.startAnimation(
                 animationID: animationID,
                 updates: updates,
-                frameQueues: frameQueues,
-                tick: 0,
-                tickCount: tickCount,
-                succeeded: true
+                starts: startingFrames.compactMap { $0 }
             )
         }
     }
 
-    private func runAnimationTick(
+    private func startAnimation(animationID: UUID, updates: [WindowFrameUpdate], starts: [WindowFrame]) {
+        // Position and size are two separate AX commits with no way to make them
+        // atomic, so animating both at once shows a mixed "new origin, old size"
+        // frame in between and the edges wobble. Move first, then resize, so only
+        // one attribute changes at a time.
+        let movedFrames = updates.indices.map { index in
+            WindowFrame(
+                x: updates[index].frame.x,
+                y: updates[index].frame.y,
+                width: starts[index].width,
+                height: starts[index].height
+            )
+        }
+
+        runPhase(
+            animationID: animationID,
+            updates: updates,
+            from: starts,
+            to: movedFrames,
+            changesSize: false,
+            duration: moveDuration,
+            succeeded: true
+        ) { [weak self] moveSucceeded in
+            guard let self else { return }
+            self.runPhase(
+                animationID: animationID,
+                updates: updates,
+                from: movedFrames,
+                to: updates.map(\.frame),
+                changesSize: true,
+                duration: self.resizeDuration,
+                succeeded: moveSucceeded
+            ) { [weak self] resizeSucceeded in
+                guard let self else { return }
+                self.queue.asyncAfter(deadline: .now() + self.settleDelay) { [weak self] in
+                    self?.finishAnimation(
+                        animationID: animationID,
+                        updates: updates,
+                        succeeded: resizeSucceeded
+                    )
+                }
+            }
+        }
+    }
+
+    private func runPhase(
         animationID: UUID,
         updates: [WindowFrameUpdate],
-        frameQueues: [PositionFrameQueue],
-        tick: Int,
-        tickCount: Int,
-        succeeded: Bool
+        from starts: [WindowFrame],
+        to targets: [WindowFrame],
+        changesSize: Bool,
+        duration: TimeInterval,
+        succeeded: Bool,
+        onFinish: @escaping @Sendable (Bool) -> Void
     ) {
         guard activeAnimationID == animationID else { return }
+
+        let activeIndices = updates.indices.filter { index in
+            !starts[index].isApproximatelyEqual(to: targets[index], tolerance: 0.5)
+        }
+        guard !activeIndices.isEmpty else {
+            onFinish(succeeded)
+            return
+        }
+
+        let phase = AnimationPhase(
+            updates: updates,
+            starts: starts,
+            targets: targets,
+            activeIndices: activeIndices,
+            changesSize: changesSize,
+            startTime: CACurrentMediaTime(),
+            duration: duration,
+            tickCount: max(1, Int((duration / tickInterval).rounded(.up))),
+            onFinish: onFinish
+        )
+        queue.asyncAfter(deadline: .now() + tickInterval) { [weak self] in
+            self?.runPhaseTick(animationID: animationID, phase: phase, tick: 1, succeeded: succeeded)
+        }
+    }
+
+    private func runPhaseTick(animationID: UUID, phase: AnimationPhase, tick: Int, succeeded: Bool) {
+        guard activeAnimationID == animationID else { return }
+
+        // Interpolate from elapsed time instead of a step index: when an AX call
+        // stalls, the next tick renders the frame for *now* rather than replaying
+        // the ones it missed, so the total duration stays put.
+        let elapsed = CACurrentMediaTime() - phase.startTime
+        let progress = WindowAnimationCurve.easeOut.progress(at: elapsed / phase.duration)
         var succeeded = succeeded
-        for frameQueue in frameQueues where tick < frameQueue.frames.count {
-            let frame = frameQueue.frames[tick]
-            let element = frameQueue.window.accessibilityElement
-            // Move first, then resize, both every tick so the frame animates smoothly.
-            // Windows whose size is unchanged skip the relayout entirely.
-            succeeded = setPosition(frame, on: element) && succeeded
-            if frameQueue.sizeChanged {
+        for index in phase.activeIndices {
+            let start = phase.starts[index]
+            let target = phase.targets[index]
+            let frame = WindowFrame(
+                x: start.x + (target.x - start.x) * progress,
+                y: start.y + (target.y - start.y) * progress,
+                width: start.width + (target.width - start.width) * progress,
+                height: start.height + (target.height - start.height) * progress
+            )
+            let element = phase.updates[index].window.accessibilityElement
+            if phase.changesSize {
                 succeeded = setSize(frame, on: element) && succeeded
+            } else {
+                succeeded = setPosition(frame, on: element) && succeeded
             }
         }
 
-        if tick + 1 < tickCount {
-            let succeededForNextTick = succeeded
-            queue.asyncAfter(deadline: .now() + animationStepInterval) { [weak self] in
-                self?.runAnimationTick(
-                    animationID: animationID,
-                    updates: updates,
-                    frameQueues: frameQueues,
-                    tick: tick + 1,
-                    tickCount: tickCount,
-                    succeeded: succeededForNextTick
-                )
-            }
-        } else {
-            let finalStepSucceeded = succeeded
-            queue.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-                self?.finishAnimation(animationID: animationID, updates: updates, succeeded: finalStepSucceeded)
-            }
+        guard tick < phase.tickCount else {
+            phase.onFinish(succeeded)
+            return
+        }
+
+        let succeededSoFar = succeeded
+        let now = CACurrentMediaTime()
+        // Skip slots a stalled AX call already missed, and land the last tick exactly
+        // on the end of the phase so the next one starts without a dead gap.
+        let nextTick = min(Int(((now - phase.startTime) / tickInterval).rounded(.down)) + 1, phase.tickCount)
+        let deadline = phase.startTime + min(Double(nextTick) * tickInterval, phase.duration)
+        queue.asyncAfter(deadline: .now() + max(0, deadline - now)) { [weak self] in
+            self?.runPhaseTick(animationID: animationID, phase: phase, tick: nextTick, succeeded: succeededSoFar)
         }
     }
 
