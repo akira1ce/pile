@@ -21,21 +21,23 @@ private let pileWindowHotKeyHandler: EventHandlerProcPtr = { _, event, userData 
     return noErr
 }
 
+struct HotKeyHandlers: Sendable {
+    let preset: @MainActor @Sendable (Int) -> Void
+    let pile: @MainActor @Sendable () -> Void
+    let cycleFocus: @MainActor @Sendable () -> Void
+}
+
 @MainActor
 final class HotKeyManager {
     private static let pileIdentifier: UInt32 = 0
+    private static let cycleFocusIdentifier: UInt32 = 6
 
     private let signature: OSType = 0x50494C45 // PILE
     private var eventHandler: EventHandlerRef?
     private var registrations: [UInt32: EventHotKeyRef] = [:]
     private var callbacks: [UInt32: @MainActor @Sendable () -> Void] = [:]
 
-    func registerAll(
-        count: Int,
-        modifier: HotKeyModifier,
-        handler: @escaping @MainActor @Sendable (Int) -> Void,
-        pileHandler: @escaping @MainActor @Sendable () -> Void
-    ) -> Bool {
+    func registerAll(count: Int, modifier: HotKeyModifier, handlers: HotKeyHandlers) -> Bool {
         unregisterLayoutHotKeys()
         guard (1...5).contains(count) else { return false }
         guard installEventHandler() else { return false }
@@ -46,13 +48,22 @@ final class HotKeyManager {
                 unregisterLayoutHotKeys()
                 return false
             }
-            callbacks[UInt32(number)] = { handler(number) }
+            callbacks[UInt32(number)] = { handlers.preset(number) }
         }
-        guard register(keyCode: UInt32(kVK_Tab), identifier: Self.pileIdentifier, modifier: modifier) else {
+        guard registerFixed(
+            keyCode: UInt32(kVK_Tab),
+            identifier: Self.pileIdentifier,
+            modifier: modifier,
+            handler: handlers.pile
+        ), registerFixed(
+            keyCode: UInt32(kVK_ANSI_Grave),
+            identifier: Self.cycleFocusIdentifier,
+            modifier: modifier,
+            handler: handlers.cycleFocus
+        ) else {
             unregisterLayoutHotKeys()
             return false
         }
-        callbacks[Self.pileIdentifier] = { pileHandler() }
         return true
     }
 
@@ -61,10 +72,8 @@ final class HotKeyManager {
             UnregisterEventHotKey(reference)
         }
         registrations.removeAll()
-        for identifier in 0...5 {
-            callbacks.removeValue(forKey: UInt32(identifier))
-        }
-        if registrations.isEmpty, let eventHandler {
+        callbacks.removeAll()
+        if let eventHandler {
             RemoveEventHandler(eventHandler)
             self.eventHandler = nil
         }
@@ -76,6 +85,17 @@ final class HotKeyManager {
 
     fileprivate func dispatch(_ identifier: UInt32) {
         callbacks[identifier]?()
+    }
+
+    private func registerFixed(
+        keyCode: UInt32,
+        identifier: UInt32,
+        modifier: HotKeyModifier,
+        handler: @escaping @MainActor @Sendable () -> Void
+    ) -> Bool {
+        guard register(keyCode: keyCode, identifier: identifier, modifier: modifier) else { return false }
+        callbacks[identifier] = handler
+        return true
     }
 
     private func register(keyCode: UInt32, identifier: UInt32, modifier: HotKeyModifier) -> Bool {

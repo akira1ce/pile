@@ -143,6 +143,15 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             pile.keyEquivalentModifierMask = menuModifierFlags(for: preferences.preferences.modifier)
             pile.target = self
             menu.addItem(pile)
+
+            let cycle = NSMenuItem(
+                title: "轮换聚焦",
+                action: #selector(selectCycleFocus),
+                keyEquivalent: "·"
+            )
+            cycle.keyEquivalentModifierMask = menuModifierFlags(for: preferences.preferences.modifier)
+            cycle.target = self
+            menu.addItem(cycle)
         } else {
             let item = NSMenuItem(title: "打开权限引导…", action: #selector(openPermissionGuide), keyEquivalent: "")
             item.target = self
@@ -239,12 +248,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let succeeded = hotKeys.registerAll(
             count: current.presets.count,
             modifier: current.modifier,
-            handler: { [weak self] presetNumber in
-                self?.center(presetNumber: presetNumber)
-            },
-            pileHandler: { [weak self] in
-                self?.pile()
-            }
+            handlers: HotKeyHandlers(
+                preset: { [weak self] presetNumber in
+                    self?.center(presetNumber: presetNumber)
+                },
+                pile: { [weak self] in
+                    self?.pile()
+                },
+                cycleFocus: { [weak self] in
+                    self?.cycleFocus()
+                }
+            )
         )
         isReady = succeeded
         statusMessage = succeeded ? shortcutsEnabledMessage : "快捷键注册失败"
@@ -256,7 +270,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let modifier = preferences.preferences.modifier.symbol
         let count = preferences.preferences.presets.count
         let expand = preferences.preferences.expandMode.title
-        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + Tab \(expand) / 收起"
+        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + Tab \(expand) / 收起，\(modifier) + · 轮换聚焦"
     }
 
     private func leaveReadyState() {
@@ -344,6 +358,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         pile()
     }
 
+    @objc private func selectCycleFocus() {
+        cycleFocus()
+    }
+
     @objc private func openPermissionGuide() {
         showPermissionGuide()
     }
@@ -404,6 +422,30 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         return
                     }
                     self.apply(command, windows: windows, focused: focused)
+                }
+            }
+        }
+    }
+
+    /// Focuses the bottom-most window of the screen. Raising it makes it frontmost,
+    /// so the next press takes the new bottom and the whole stack gets walked in
+    /// order. Picking the window *behind* the focused one instead would only ever
+    /// swap the same two, because the raised window lands above the one it replaced.
+    private func cycleFocus() {
+        withAdjustableWindow { [weak self] focused, screen, _ in
+            guard let self else { return }
+            self.accessibility.windows(on: screen, focusedWindowID: focused.id) { [weak self] visibleWindows in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    guard let next = visibleWindows.last, next.id != focused.id else {
+                        self.statusMessage = "当前屏幕没有其他窗口"
+                        self.rebuildMenu()
+                        return
+                    }
+                    // AXRaise only reorders inside an app, so the owning app has to
+                    // be activated for the window to actually take keyboard focus.
+                    NSRunningApplication(processIdentifier: next.processID)?.activate()
+                    self.accessibility.raise(next) { _ in }
                 }
             }
         }

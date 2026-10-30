@@ -251,6 +251,8 @@ struct SettingsView: View {
                 .monospacedDigit()
             Text("\(store.preferences.modifier.symbol) + Tab \(store.preferences.expandMode.title) / 收起")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
+            Text("\(store.preferences.modifier.symbol) + · 轮换聚焦")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 16)
