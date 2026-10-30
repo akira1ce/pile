@@ -443,9 +443,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         return
                     }
                     // AXRaise only reorders inside an app, so the owning app has to
-                    // be activated for the window to actually take keyboard focus.
-                    NSRunningApplication(processIdentifier: next.processID)?.activate()
-                    self.accessibility.raise(next) { _ in }
+                    // be brought forward with it.
+                    self.accessibility.focus(next) { _ in }
                 }
             }
         }

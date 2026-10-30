@@ -416,6 +416,33 @@ final class AccessibilityWindowService: @unchecked Sendable {
         }
     }
 
+    /// Focuses a window that may belong to a background app.
+    ///
+    /// `kAXRaiseAction` alone only reorders the window inside its own app, so the
+    /// app has to come forward too. `NSRunningApplication.activate()` can't do that
+    /// from an app that isn't already active — since macOS 14 activation requires
+    /// the active app to yield first — so the app is brought forward through AX
+    /// instead, which works for any trusted accessibility client.
+    func focus(_ window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
+        guard window.processID != ProcessInfo.processInfo.processIdentifier else {
+            completion(false)
+            return
+        }
+
+        queue.async {
+            let element = window.accessibilityElement
+            let app = AXUIElementCreateApplication(window.processID)
+            AXUIElementSetMessagingTimeout(app, self.messagingTimeout)
+
+            // Make the window the app's focused window before the app comes
+            // forward, otherwise activating it raises whichever window it last had.
+            AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+            let frontmost = AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+            completion(frontmost == .success)
+        }
+    }
+
     private struct CGWindowRecord {
         let id: String
         let processID: pid_t
