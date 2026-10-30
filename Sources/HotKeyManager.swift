@@ -51,12 +51,12 @@ final class HotKeyManager {
             callbacks[UInt32(number)] = { handlers.preset(number) }
         }
         guard registerFixed(
-            keyCode: UInt32(kVK_Tab),
+            keyCode: UInt32(kVK_ANSI_Grave),
             identifier: Self.pileIdentifier,
             modifier: modifier,
             handler: handlers.pile
         ), registerFixed(
-            keyCode: UInt32(kVK_ANSI_Grave),
+            keyCode: UInt32(kVK_Tab),
             identifier: Self.cycleFocusIdentifier,
             modifier: modifier,
             handler: handlers.cycleFocus

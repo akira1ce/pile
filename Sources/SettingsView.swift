@@ -72,7 +72,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 18) {
             sectionHeading(
                 title: "展开方式",
-                subtitle: "\(store.preferences.modifier.symbol) + Tab 在收起与展开之间切换"
+                subtitle: "\(store.preferences.modifier.symbol) + · 在收起与展开之间切换"
             )
 
             HStack {
@@ -249,9 +249,9 @@ struct SettingsView: View {
             Text("\(store.preferences.modifier.symbol) + 1–\(store.preferences.presets.count) 居中")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-            Text("\(store.preferences.modifier.symbol) + Tab \(store.preferences.expandMode.title) / 收起")
+            Text("\(store.preferences.modifier.symbol) + · \(store.preferences.expandMode.title) / 收起")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
-            Text("\(store.preferences.modifier.symbol) + · 轮换聚焦")
+            Text("\(store.preferences.modifier.symbol) + Tab 轮换聚焦")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
         }
         .padding(.horizontal, 26)

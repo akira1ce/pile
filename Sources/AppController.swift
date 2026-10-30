@@ -58,7 +58,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let appIcon = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")
                 .flatMap(NSImage.init(contentsOf:))
             let image = appIcon ?? NSImage(systemSymbolName: "rectangle.3.group", accessibilityDescription: "pile")
-            image?.size = NSSize(width: 18, height: 18)
+            image?.size = NSSize(width: 16, height: 16)
             image?.isTemplate = false
             button.image = image
             button.imageScaling = .scaleProportionallyDown
@@ -138,7 +138,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let pile = NSMenuItem(
                 title: "\(preferences.preferences.expandMode.title) / 收起",
                 action: #selector(togglePile),
-                keyEquivalent: "\t"
+                keyEquivalent: "·"
             )
             pile.keyEquivalentModifierMask = menuModifierFlags(for: preferences.preferences.modifier)
             pile.target = self
@@ -147,7 +147,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let cycle = NSMenuItem(
                 title: "轮换聚焦",
                 action: #selector(selectCycleFocus),
-                keyEquivalent: "·"
+                keyEquivalent: "\t"
             )
             cycle.keyEquivalentModifierMask = menuModifierFlags(for: preferences.preferences.modifier)
             cycle.target = self
@@ -270,7 +270,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let modifier = preferences.preferences.modifier.symbol
         let count = preferences.preferences.presets.count
         let expand = preferences.preferences.expandMode.title
-        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + Tab \(expand) / 收起，\(modifier) + · 轮换聚焦"
+        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + · \(expand) / 收起，\(modifier) + Tab 轮换聚焦"
     }
 
     private func leaveReadyState() {
