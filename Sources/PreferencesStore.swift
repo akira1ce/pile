@@ -37,22 +37,54 @@ struct WindowPresetSettings: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
+/// Configuration owned by the stacked expand mode. Each expand mode carries its
+/// own settings struct so its options stay out of the global preferences.
+struct StackedModeSettings: Codable, Equatable, Sendable {
+    var gap: Double
+
+    static let defaults = StackedModeSettings(gap: 10)
+
+    var isValid: Bool {
+        gap.isFinite && (2...20).contains(gap) && gap.truncatingRemainder(dividingBy: 2) == 0
+    }
+
+    static func clampedGap(_ value: Double) -> Double {
+        guard value.isFinite else { return defaults.gap }
+        let clamped = min(20, max(2, value))
+        return (clamped / 2).rounded() * 2
+    }
+}
+
 struct AppPreferences: Codable, Equatable, Sendable {
     var modifier: HotKeyModifier
-    var stackGap: Double
+    var expandMode: LayoutMode
+    var stacked: StackedModeSettings
     var animationsEnabled: Bool
     var presets: [WindowPresetSettings]
 
     private enum CodingKeys: String, CodingKey {
         case modifier
-        case stackGap
+        case expandMode
+        case stacked
         case animationsEnabled
         case presets
     }
 
-    init(modifier: HotKeyModifier, stackGap: Double, animationsEnabled: Bool = true, presets: [WindowPresetSettings]) {
+    /// The gap used to be a global field; these keys only exist to migrate it.
+    private enum LegacyCodingKeys: String, CodingKey {
+        case stackGap
+    }
+
+    init(
+        modifier: HotKeyModifier,
+        expandMode: LayoutMode = .stacked,
+        stacked: StackedModeSettings = .defaults,
+        animationsEnabled: Bool = true,
+        presets: [WindowPresetSettings]
+    ) {
         self.modifier = modifier
-        self.stackGap = stackGap
+        self.expandMode = expandMode
+        self.stacked = stacked
         self.animationsEnabled = animationsEnabled
         self.presets = presets
     }
@@ -62,14 +94,25 @@ struct AppPreferences: Codable, Equatable, Sendable {
         // A stored modifier we no longer support (e.g. "command") must not take the
         // rest of the preferences down with it, so fall back per-field.
         modifier = (try? container.decode(HotKeyModifier.self, forKey: .modifier)) ?? .option
-        stackGap = try container.decodeIfPresent(Double.self, forKey: .stackGap) ?? 10
+        let storedExpandMode = (try? container.decode(LayoutMode.self, forKey: .expandMode)) ?? .stacked
+        expandMode = LayoutMode.expandModes.contains(storedExpandMode) ? storedExpandMode : .stacked
+        if let stored = try? container.decode(StackedModeSettings.self, forKey: .stacked) {
+            stacked = stored
+        } else {
+            let legacy = try? decoder.container(keyedBy: LegacyCodingKeys.self)
+            let legacyGap = legacy.flatMap { try? $0.decode(Double.self, forKey: .stackGap) }
+            // Normalize on the way in: an out-of-range legacy gap would otherwise
+            // fail validation and discard the presets along with it.
+            stacked = StackedModeSettings(
+                gap: StackedModeSettings.clampedGap(legacyGap ?? StackedModeSettings.defaults.gap)
+            )
+        }
         animationsEnabled = try container.decodeIfPresent(Bool.self, forKey: .animationsEnabled) ?? true
         presets = try container.decode([WindowPresetSettings].self, forKey: .presets)
     }
 
     static let defaults = AppPreferences(
         modifier: .option,
-        stackGap: 10,
         presets: [
             WindowPresetSettings(widthPercent: 60, heightPercent: 72),
             WindowPresetSettings(widthPercent: 72, heightPercent: 78),
@@ -124,9 +167,16 @@ final class PreferencesStore: ObservableObject {
         save(updated)
     }
 
-    func setStackGap(_ value: Double) {
+    func setExpandMode(_ mode: LayoutMode) {
+        guard mode != preferences.expandMode, LayoutMode.expandModes.contains(mode) else { return }
         var updated = preferences
-        updated.stackGap = Self.clampedStackGap(value)
+        updated.expandMode = mode
+        save(updated)
+    }
+
+    func setStackedGap(_ value: Double) {
+        var updated = preferences
+        updated.stacked.gap = StackedModeSettings.clampedGap(value)
         save(updated)
     }
 
@@ -189,16 +239,10 @@ final class PreferencesStore: ObservableObject {
         return min(100, max(1, value.rounded()))
     }
 
-    private static func clampedStackGap(_ value: Double) -> Double {
-        guard value.isFinite else { return 10 }
-        let clamped = min(20, max(2, value))
-        return (clamped / 2).rounded() * 2
-    }
-
     private static func isValid(_ preferences: AppPreferences) -> Bool {
         (1...5).contains(preferences.presets.count)
-            && preferences.stackGap.isFinite && (2...20).contains(preferences.stackGap)
-            && preferences.stackGap.truncatingRemainder(dividingBy: 2) == 0
+            && LayoutMode.expandModes.contains(preferences.expandMode)
+            && preferences.stacked.isValid
             && preferences.presets.allSatisfy {
                 $0.widthPercent.isFinite && (1...100).contains($0.widthPercent)
                     && $0.heightPercent.isFinite && (1...100).contains($0.heightPercent)

@@ -18,15 +18,16 @@ final class LayoutCoordinator {
         focusedWindow: LayoutWindow,
         screen: ScreenGeometry,
         windows: [LayoutWindow],
-        stackGap: Double
+        expandMode: LayoutMode,
+        spacing: Double
     ) -> LayoutCommand? {
         guard windows.contains(where: { $0.id == focusedWindow.id }) else { return nil }
 
-        // Only an intact collapsed pile expands into a stack. Everything else —
-        // a neutral screen, an intact stack, or a layout the user has since
-        // disturbed — collapses, so the two pile modes alternate.
+        // Only an intact collapsed pile expands. Everything else — a neutral screen,
+        // an intact expansion, or a layout the user has since disturbed — collapses,
+        // so the pile key alternates between the two.
         let existing = statesByScreen[screen.uuid]
-        let shouldStack = existing?.mode == .overlap
+        let expands = existing?.mode == .collapsed
             && WindowGeometry.isIntact(state: existing, windows: windows, screen: screen)
 
         // The pile takes the size the focused window currently has, so centering at
@@ -37,9 +38,9 @@ final class LayoutCoordinator {
             windows: windows,
             focusedWindowID: focusedWindow.id,
             base: WindowGeometry.centeredFrame(sizeOf: focusedWindow.frame, in: screen),
-            stackGap: stackGap,
+            spacing: spacing,
             screen: screen,
-            mode: shouldStack ? .stacked : .overlap
+            mode: expands ? expandMode : .collapsed
         ) else { return nil }
         return .arrange(targets: arrangement.targets, resultingState: arrangement.state)
     }

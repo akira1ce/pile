@@ -113,16 +113,46 @@ struct ScreenGeometry: Sendable {
     }
 }
 
-enum LayoutMode: String, Sendable {
+enum LayoutMode: String, CaseIterable, Codable, Identifiable, Sendable {
+    case collapsed
     case stacked
-    case overlap
+
+    var id: String { rawValue }
+
+    /// Collapsing has one shape; expanding will gain more (tiling, etc.) and this
+    /// is the list the settings picker offers.
+    static var expandModes: [LayoutMode] { [.stacked] }
+
+    var title: String {
+        switch self {
+        case .collapsed: "收起"
+        case .stacked: "堆叠"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .collapsed: "square.stack.3d.down.right"
+        case .stacked: "square.3.layers.3d"
+        }
+    }
+
+    var completedMessage: String {
+        switch self {
+        case .collapsed: "窗口已居中收起"
+        case .stacked: "窗口已堆叠"
+        }
+    }
 }
 
 struct WindowLayoutState: Sendable {
     let mode: LayoutMode
     let orderedWindowIDs: [String]
     let base: WindowFrame
-    let stackGap: Double
+    /// What the gap means depends on the mode: a cascade step when stacked, unused
+    /// when collapsed. Holds the value in effect at apply time, so editing the
+    /// setting afterwards can't make an intact layout look disturbed.
+    let spacing: Double
     let screenUUID: String
 }
 
@@ -169,22 +199,21 @@ enum WindowGeometry {
         windows: [LayoutWindow],
         focusedWindowID: String,
         base: WindowFrame,
-        stackGap: Double,
+        spacing: Double,
         screen: ScreenGeometry,
         mode: LayoutMode
     ) -> (targets: [WindowTarget], state: WindowLayoutState)? {
         guard !windows.isEmpty, windows.contains(where: { $0.id == focusedWindowID }) else { return nil }
 
-        let offset = mode == .stacked ? stackOffset(count: windows.count, gap: stackGap) : 0
         let targets = windows.enumerated().map { index, window in
-            let shift = Double(index) * offset
-            return WindowTarget(
+            WindowTarget(
                 windowID: window.id,
-                frame: WindowFrame(
-                    x: base.x + shift,
-                    y: base.y + shift,
-                    width: base.width,
-                    height: base.height
+                frame: frame(
+                    at: index,
+                    count: windows.count,
+                    base: base,
+                    spacing: spacing,
+                    mode: mode
                 )
             )
         }
@@ -192,9 +221,32 @@ enum WindowGeometry {
             mode: mode,
             orderedWindowIDs: windows.map(\.id),
             base: base,
-            stackGap: stackGap,
+            spacing: spacing,
             screenUUID: screen.uuid
         ))
+    }
+
+    /// Where one window of the pile goes. Adding an expand mode is a new case
+    /// here; collapsing ignores the index and puts everything on the base.
+    private static func frame(
+        at index: Int,
+        count: Int,
+        base: WindowFrame,
+        spacing: Double,
+        mode: LayoutMode
+    ) -> WindowFrame {
+        switch mode {
+        case .collapsed:
+            return base
+        case .stacked:
+            let shift = Double(index) * stackOffset(count: count, gap: spacing)
+            return WindowFrame(
+                x: base.x + shift,
+                y: base.y + shift,
+                width: base.width,
+                height: base.height
+            )
+        }
     }
 
     static func isIntact(
@@ -214,7 +266,7 @@ enum WindowGeometry {
                 },
                 focusedWindowID: state.orderedWindowIDs[0],
                 base: state.base,
-                stackGap: state.stackGap,
+                spacing: state.spacing,
                 screen: screen,
                 mode: state.mode
               ) else { return false }

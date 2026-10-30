@@ -11,6 +11,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     globalSettings
+                    expandSettings
                     presetSettings
                 }
                 .padding(.horizontal, 26)
@@ -27,7 +28,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 5) {
             Text("快捷键与布局")
                 .font(.system(size: 23, weight: .semibold))
-            Text("调整快捷键、窗口预设和堆叠行为。修改后立即生效。")
+            Text("调整快捷键、窗口预设和展开方式。修改后立即生效。")
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }
@@ -56,39 +57,79 @@ struct SettingsView: View {
             )) {
                 VStack(alignment: .leading, spacing: 3) {
                     Label("窗口动画", systemImage: "move.3d")
-                    Text("居中和堆叠时平滑移动窗口，不动画缩放")
+                    Text("居中和展开时平滑移动与缩放窗口")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .toggleStyle(.switch)
+        }
+        .padding(18)
+        .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16))
+    }
 
-            Divider()
+    private var expandSettings: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            sectionHeading(
+                title: "展开方式",
+                subtitle: "\(store.preferences.modifier.symbol) + Tab 在收起与展开之间切换"
+            )
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Label("堆叠间距", systemImage: "square.3.layers.3d")
-                    Spacer()
-                    valueBadge("\(Int(store.preferences.stackGap)) pt")
-                }
-                Slider(
-                    value: Binding(
-                        get: { store.preferences.stackGap },
-                        set: { store.setStackGap($0) }
-                    ),
-                    in: 2...20
-                )
-                HStack {
-                    Text("2 pt")
-                    Spacer()
-                    Text("20 pt")
-                }
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            HStack {
+                Label("展开模式", systemImage: "square.on.square.squareshape")
+                Spacer()
+                expandModePicker
+                    .frame(width: 190)
+            }
+
+            if store.preferences.expandMode == .stacked {
+                Divider()
+
+                stackedGapSettings
             }
         }
         .padding(18)
         .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var expandModePicker: some View {
+        Picker("展开模式", selection: Binding(
+            get: { store.preferences.expandMode },
+            set: { store.setExpandMode($0) }
+        )) {
+            ForEach(LayoutMode.expandModes) { mode in
+                Text(mode.title)
+                    .tag(mode)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.tabs)
+    }
+
+    /// Only the selected expand mode shows its own options, so a mode's settings
+    /// never sit in the global section.
+    private var stackedGapSettings: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("堆叠间距", systemImage: LayoutMode.stacked.symbol)
+                Spacer()
+                valueBadge("\(Int(store.preferences.stacked.gap)) pt")
+            }
+            Slider(
+                value: Binding(
+                    get: { store.preferences.stacked.gap },
+                    set: { store.setStackedGap($0) }
+                ),
+                in: 2...20
+            )
+            HStack {
+                Text("2 pt")
+                Spacer()
+                Text("20 pt")
+            }
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
+        }
     }
 
     private var modifierPicker: some View {
@@ -208,7 +249,7 @@ struct SettingsView: View {
             Text("\(store.preferences.modifier.symbol) + 1–\(store.preferences.presets.count) 居中")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-            Text("\(store.preferences.modifier.symbol) + Tab 堆叠 / 收起")
+            Text("\(store.preferences.modifier.symbol) + Tab \(store.preferences.expandMode.title) / 收起")
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
         }
         .padding(.horizontal, 26)

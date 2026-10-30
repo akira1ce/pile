@@ -136,7 +136,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
             menu.addItem(.separator())
             let pile = NSMenuItem(
-                title: "堆叠 / 收起",
+                title: "\(preferences.preferences.expandMode.title) / 收起",
                 action: #selector(togglePile),
                 keyEquivalent: "\t"
             )
@@ -255,7 +255,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var shortcutsEnabledMessage: String {
         let modifier = preferences.preferences.modifier.symbol
         let count = preferences.preferences.presets.count
-        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + Tab 堆叠 / 收起"
+        let expand = preferences.preferences.expandMode.title
+        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + Tab \(expand) / 收起"
     }
 
     private func leaveReadyState() {
@@ -395,7 +396,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         focusedWindow: focused.layoutWindow,
                         screen: geometry,
                         windows: windows.map(\.layoutWindow),
-                        stackGap: self.preferences.preferences.stackGap
+                        expandMode: self.preferences.preferences.expandMode,
+                        spacing: self.preferences.preferences.stacked.gap
                     ) else {
                         self.statusMessage = "当前没有可调整的窗口"
                         self.rebuildMenu()
@@ -454,7 +456,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert()
         alert.alertStyle = .informational
         alert.messageText = "请先关闭 pile 设置窗口"
-        alert.informativeText = "关闭设置窗口后，再使用居中或堆叠快捷键。"
+        alert.informativeText = "关闭设置窗口后，再使用居中或展开快捷键。"
         alert.addButton(withTitle: "关闭设置")
         alert.addButton(withTitle: "取消")
         NSApplication.shared.activate(ignoringOtherApps: true)
@@ -511,7 +513,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                         self.layouts.recordApplied(resultingState)
                         let focusedWindow = windowsByID[focused.id] ?? focused
                         self.accessibility.raise(focusedWindow) { _ in }
-                        self.statusMessage = resultingState.mode == .stacked ? "窗口已堆叠" : "窗口已居中收起"
+                        self.statusMessage = resultingState.mode.completedMessage
                     case .failed:
                         self.statusMessage = "部分窗口未能调整"
                     case .cancelled:
