@@ -50,6 +50,9 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
 struct SettingsView: View {
     @ObservedObject var store: PreferencesStore
     @State private var selection: SettingsCategory = .general
+    @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
+    @State private var launchAtLoginRequiresApproval = LaunchAtLogin.requiresApproval
+    @State private var launchAtLoginError: String?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -64,6 +67,9 @@ struct SettingsView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .ignoresSafeArea(.container, edges: .top)
+        .onAppear {
+            refreshLaunchAtLoginState()
+        }
     }
 
     private var sidebar: some View {
@@ -204,6 +210,21 @@ struct SettingsView: View {
                         Text("居中和展开时平滑移动与缩放窗口")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
+                Divider()
+
+                Toggle(isOn: Binding(
+                    get: { launchAtLoginEnabled },
+                    set: { setLaunchAtLogin($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Label("登录时启动", systemImage: "power")
+                        Text(launchAtLoginDescription)
+                            .font(.caption)
+                            .foregroundStyle(launchAtLoginError == nil ? Color.secondary : Color.red)
                     }
                 }
                 .toggleStyle(.switch)
@@ -482,6 +503,29 @@ struct SettingsView: View {
 
     private var appVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
+    private var launchAtLoginDescription: String {
+        if let launchAtLoginError { return launchAtLoginError }
+        if launchAtLoginRequiresApproval {
+            return "需要在「系统设置 → 通用 → 登录项」中允许"
+        }
+        return "登录 macOS 后自动在菜单栏运行"
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            try LaunchAtLogin.set(enabled)
+            launchAtLoginError = nil
+        } catch {
+            launchAtLoginError = "操作失败，请确认 pile 已放在「应用程序」文件夹"
+        }
+        refreshLaunchAtLoginState()
+    }
+
+    private func refreshLaunchAtLoginState() {
+        launchAtLoginEnabled = LaunchAtLogin.isEnabled
+        launchAtLoginRequiresApproval = LaunchAtLogin.requiresApproval
     }
 
     private var sectionSurface: Color {

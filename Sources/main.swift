@@ -7,7 +7,7 @@ enum PileApp {
         let app = NSApplication.shared
         let controller = AppController()
         app.delegate = controller
-        app.setActivationPolicy(.regular)
+        app.setActivationPolicy(.accessory)
         app.run()
     }
 }

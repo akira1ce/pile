@@ -15,6 +15,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var isSettingsClosePromptPresented = false
     private var observers: [NSObjectProtocol] = []
     private var isReady = false
+    private var suppressWindowPresentation = false
     private var statusMessage = "正在检查辅助功能权限"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -30,7 +31,17 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configureMainMenu()
         configureStatusItem()
         observeSystemChanges()
-        refreshPermissionState(showGuideIfNeeded: true)
+        // A login-item launch should stay in the menu bar instead of throwing the
+        // permission guide or settings window in the user's face.
+        suppressWindowPresentation = Self.launchedAsLoginItem
+        refreshPermissionState(showGuideIfNeeded: !suppressWindowPresentation)
+        suppressWindowPresentation = false
+    }
+
+    private static var launchedAsLoginItem: Bool {
+        NSAppleEventManager.shared().currentAppleEvent?
+            .attributeDescriptor(forKeyword: AEKeyword(keyAELaunchedAsLogInItem))?
+            .booleanValue == true
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
@@ -248,6 +259,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         registerConfiguredHotKeys()
         closePermissionGuide()
+        guard !suppressWindowPresentation else { return }
         if !UserDefaults.standard.bool(forKey: Self.featureTourSeenKey) {
             UserDefaults.standard.set(true, forKey: Self.featureTourSeenKey)
             showFeatureTour(openSettingsWhenDone: true)
