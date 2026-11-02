@@ -50,27 +50,26 @@ struct FeatureTourView: View {
     }
 
     private var shortcutList: some View {
-        VStack(spacing: 0) {
-            shortcutRow(keys: "\(modifierSymbol) + 1–3", title: "把窗口居中到你设定的尺寸")
-            Divider()
-                .padding(.leading, 16)
-            shortcutRow(keys: "\(modifierSymbol) + ·", title: "把当前屏幕的窗口展开 / 收起")
-            Divider()
-                .padding(.leading, 16)
-            shortcutRow(keys: "\(modifierSymbol) + Tab", title: "在当前屏幕的窗口之间轮换聚焦")
-            Divider()
-                .padding(.leading, 16)
-            Label("使用快捷键前，请先关闭设置窗口。", systemImage: "info.circle")
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(spacing: 0) {
+                shortcutRow(keys: "\(modifierSymbol) + 1–3", title: "把窗口居中到你设定的尺寸")
+                Divider()
+                    .padding(.leading, 16)
+                shortcutRow(keys: "\(modifierSymbol) + ·", title: "把当前屏幕的窗口展开 / 收起")
+                Divider()
+                    .padding(.leading, 16)
+                shortcutRow(keys: "\(modifierSymbol) + Tab", title: "在当前屏幕的窗口之间轮换聚焦")
+            }
+            .background(
+                Color(nsColor: .controlBackgroundColor).opacity(0.48),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+
+            Text("使用快捷键前，请先关闭设置窗口")
                 .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 11)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .foregroundStyle(.tertiary)
+                .padding(.leading, 4)
         }
-        .background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.48),
-            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
-        )
     }
 
     private func shortcutRow(keys: String, title: String) -> some View {
@@ -78,12 +77,13 @@ struct FeatureTourView: View {
             Text(keys)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .frame(width: 92, alignment: .leading)
+                .padding(.horizontal, 10)
                 .padding(.vertical, 5)
                 .background(
-                    Color.primary.opacity(0.07),
+                    Color.primary.opacity(0.06),
                     in: RoundedRectangle(cornerRadius: 6, style: .continuous)
                 )
+                .frame(width: 96, alignment: .leading)
             Text(title)
                 .font(.callout)
             Spacer(minLength: 0)
