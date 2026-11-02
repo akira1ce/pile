@@ -320,12 +320,14 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 700),
-            styleMask: [.titled, .closable],
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 620),
+            styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "pile 设置"
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.delegate = self
         window.contentView = NSHostingView(rootView: SettingsView(store: preferences))
