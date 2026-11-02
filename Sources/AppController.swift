@@ -10,6 +10,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var permissionWindow: NSWindow?
     private var preferencesWindow: NSWindow?
+    private var featureTourWindow: NSWindow?
+    private static let featureTourSeenKey = "pile.onboarding.featureTourSeen"
     private var isSettingsClosePromptPresented = false
     private var observers: [NSObjectProtocol] = []
     private var isReady = false
@@ -47,9 +49,13 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              window === preferencesWindow else { return }
-        preferencesWindow = nil
+        guard let window = notification.object as? NSWindow else { return }
+        if window === preferencesWindow {
+            preferencesWindow = nil
+        }
+        if window === featureTourWindow {
+            featureTourWindow = nil
+        }
     }
 
     private func configureStatusItem() {
@@ -163,6 +169,11 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settings.keyEquivalentModifierMask = [.command]
         settings.target = self
         menu.addItem(settings)
+
+        let tour = NSMenuItem(title: "功能介绍", action: #selector(openFeatureTour), keyEquivalent: "")
+        tour.target = self
+        menu.addItem(tour)
+
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "退出", action: #selector(quit), keyEquivalent: "q")
         quit.target = self
@@ -237,7 +248,10 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         registerConfiguredHotKeys()
         closePermissionGuide()
-        if preferencesWindow == nil {
+        if !UserDefaults.standard.bool(forKey: Self.featureTourSeenKey) {
+            UserDefaults.standard.set(true, forKey: Self.featureTourSeenKey)
+            showFeatureTour(openSettingsWhenDone: true)
+        } else if preferencesWindow == nil {
             openPreferencesWindow()
         }
     }
@@ -335,6 +349,41 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         preferencesWindow = window
         NSApplication.shared.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    private func showFeatureTour(openSettingsWhenDone: Bool) {
+        if let featureTourWindow {
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            featureTourWindow.makeKeyAndOrderFront(nil)
+            return
+        }
+        let view = FeatureTourView(
+            modifierSymbol: preferences.preferences.modifier.symbol
+        ) { [weak self] in
+            guard let self else { return }
+            self.featureTourWindow?.close()
+            if openSettingsWhenDone, self.preferencesWindow == nil {
+                self.openPreferencesWindow()
+            }
+        }
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 740),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "认识 pile"
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.contentView = NSHostingView(rootView: view)
+        window.center()
+        featureTourWindow = window
+        NSApplication.shared.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func openFeatureTour() {
+        showFeatureTour(openSettingsWhenDone: false)
     }
 
     @objc private func requestAccessibilityAccess() {
