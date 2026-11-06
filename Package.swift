@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "pile",
-    platforms: [.macOS("27.0")],
+    platforms: [.macOS("26.0")],
     products: [
         .executable(name: "pile", targets: ["pile"]),
     ],

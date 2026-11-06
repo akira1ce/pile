@@ -318,7 +318,7 @@ struct SettingsView: View {
             }
         }
         .labelsHidden()
-        .pickerStyle(.tabs)
+        .settingsPickerStyle()
     }
 
     /// Only the selected expand mode shows its own options, so a mode's settings
@@ -348,7 +348,7 @@ struct SettingsView: View {
     }
 
     private var modifierPicker: some View {
-        modifierPickerControl.pickerStyle(.tabs)
+        modifierPickerControl.settingsPickerStyle()
     }
 
     private var modifierPickerControl: some View {
@@ -548,5 +548,17 @@ struct SettingsView: View {
             .monospacedDigit()
             .foregroundStyle(.secondary)
             .frame(minWidth: 48, alignment: .trailing)
+    }
+}
+
+private extension View {
+    /// `.tabs` picker style is macOS 27-only; use segmented controls on 26.
+    @ViewBuilder
+    func settingsPickerStyle() -> some View {
+        if #available(macOS 27.0, *) {
+            pickerStyle(.tabs)
+        } else {
+            pickerStyle(.segmented)
+        }
     }
 }

@@ -27,7 +27,7 @@
 		<string>MacOSX</string>
 	</array>
 	<key>LSMinimumSystemVersion</key>
-	<string>27.0</string>
+	<string>26.0</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSPrincipalClass</key>
