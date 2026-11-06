@@ -132,7 +132,7 @@ final class AccessibilityWindowService: @unchecked Sendable {
     }
 
     @MainActor
-    func windows(on screen: NSScreen, focusedWindowID: String, completion: @escaping @Sendable ([WindowIdentity]) -> Void) {
+    func windows(on screen: NSScreen, focusedWindowID: String?, completion: @escaping @Sendable ([WindowIdentity]) -> Void) {
         let screens = NSScreen.screens.compactMap { ScreenGeometry(screen: $0) }
         guard let screenGeometry = ScreenGeometry(screen: screen) else {
             completion([])
@@ -174,7 +174,8 @@ final class AccessibilityWindowService: @unchecked Sendable {
                 result.append(match.withID(cgWindow.id))
             }
 
-            if let focusedIndex = result.firstIndex(where: { $0.id == focusedWindowID }) {
+            if let focusedWindowID,
+               let focusedIndex = result.firstIndex(where: { $0.id == focusedWindowID }) {
                 let focused = result.remove(at: focusedIndex)
                 result.insert(focused, at: 0)
             }

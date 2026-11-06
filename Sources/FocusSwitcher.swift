@@ -29,7 +29,7 @@ final class FocusSwitcherController {
 
     private var panel: FocusSwitcherPanel?
     private var model: FocusSwitcherModel?
-    private var focusedWindowID = ""
+    private var anchorWindowID: String?
     private var presentationDisplayID: CGDirectDisplayID?
     private var pendingSteps = 0
     private var isPresenting = false
@@ -44,21 +44,21 @@ final class FocusSwitcherController {
     var isActive: Bool { panel != nil || isPresenting }
 
     func begin(
-        focused: WindowIdentity,
+        anchor: WindowIdentity?,
         screen: NSScreen,
         animationsEnabled: Bool,
-        initialStep: Int = 1
+        initialStep: Int = 0
     ) {
         guard !isActive else { return }
         isPresenting = true
         self.animationsEnabled = animationsEnabled
-        focusedWindowID = focused.id
+        anchorWindowID = anchor?.id
         pendingSteps = initialStep
         presentationToken &+= 1
         let token = presentationToken
         let displayID = Self.displayID(of: screen)
 
-        accessibility.windows(on: screen, focusedWindowID: focused.id) { [weak self] windows in
+        accessibility.windows(on: screen, focusedWindowID: anchor?.id) { [weak self] windows in
             Task { @MainActor [weak self] in
                 guard let self, self.presentationToken == token else { return }
                 self.isPresenting = false
@@ -124,7 +124,7 @@ final class FocusSwitcherController {
             return
         }
         let chosen = model.items[model.selection]
-        let needsFocus = chosen.window.id != focusedWindowID
+        let needsFocus = chosen.window.id != anchorWindowID
         dismiss()
         if needsFocus {
             accessibility.focus(chosen.window) { _ in }

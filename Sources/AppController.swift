@@ -516,26 +516,57 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Opens the switcher on the first step and only moves its highlight after
     /// that; committing belongs to the switcher so repeated presses don't raise
-    /// intermediate windows.
+    /// intermediate windows. Unlike the layout actions it doesn't need a focused
+    /// window, so it works from an empty desktop.
     private func focusSwitchStep(reverse: Bool) {
         if focusSwitcher.isActive {
             focusSwitcher.advance(reverse: reverse)
             return
         }
-        withAdjustableWindow { [weak self] focused, screen, _ in
-            guard let self else { return }
-            // Another press can land while the window list is still being built.
-            if self.focusSwitcher.isActive {
-                self.focusSwitcher.advance(reverse: reverse)
-                return
-            }
-            self.focusSwitcher.begin(
-                focused: focused,
-                screen: screen,
-                animationsEnabled: self.preferences.preferences.animationsEnabled,
-                initialStep: reverse ? -1 : 1
-            )
+        guard accessibility.isTrusted() else {
+            leaveReadyState()
+            statusMessage = "需要辅助功能权限"
+            rebuildMenu()
+            showPermissionGuide()
+            return
         }
+        accessibility.focusedWindow { [weak self] focused in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                // Another press can land while the window list is still being built.
+                if self.focusSwitcher.isActive {
+                    self.focusSwitcher.advance(reverse: reverse)
+                    return
+                }
+                let anchor = focused.flatMap {
+                    Self.isSwitcherAnchor($0) ? $0 : nil
+                }
+                guard let screen = anchor.flatMap(Self.screen(for:))
+                    ?? Self.screenUnderMouse()
+                    ?? NSScreen.main else { return }
+                self.focusSwitcher.begin(
+                    anchor: anchor,
+                    screen: screen,
+                    animationsEnabled: self.preferences.preferences.animationsEnabled,
+                    initialStep: anchor == nil ? 0 : (reverse ? -1 : 1)
+                )
+            }
+        }
+    }
+
+    private static func isSwitcherAnchor(_ window: WindowIdentity) -> Bool {
+        window.isStandard && !window.isFullScreen && !window.isMinimized
+    }
+
+    private static func screen(for window: WindowIdentity) -> NSScreen? {
+        NSScreen.screens.first {
+            ScreenGeometry(screen: $0)?.uuid == window.screenUUID
+        }
+    }
+
+    private static func screenUnderMouse() -> NSScreen? {
+        let location = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(location) }
     }
 
     /// Runs `body` with the focused window and its screen once permission and
