@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pile — 把窗口摆整齐的 macOS 菜单栏工具</title>
+  <meta name="description" content="pile 是一个 macOS 菜单栏工具：⌥1–5 居中窗口、⌥· 收起 / 展开、⌥Tab 按窗口切换。">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfbfc">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0a0a0b">
+  <meta property="og:title" content="pile — 把窗口摆整齐">
+  <meta property="og:description" content="居中、收起、切换。三个快捷键，管好当前屏幕的所有窗口。">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/appicon-256.png">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme inline {
+      --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      --color-paper: var(--paper);
+      --color-ink: var(--ink);
+      --color-muted: var(--muted);
+      --color-line: var(--line);
+      --color-surface: var(--surface);
+      --color-window: var(--window);
+      --color-window-ink: var(--window-ink);
+    }
+  </style>
+  <link rel="stylesheet" href="css/site.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body class="min-h-screen bg-paper font-sans text-ink antialiased selection:bg-ink selection:text-paper">
+  <span data-nav-sentinel aria-hidden="true" class="pointer-events-none absolute left-0 top-0 h-8 w-px"></span>
+
+  <header data-nav class="site-nav fixed inset-x-0 top-0 z-50">
+    <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-5 sm:px-8">
+      <a href="#top" class="flex items-center gap-2.5 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ink/20">
+        <img src="assets/appicon-256.png" width="28" height="28" alt="" class="h-7 w-7 rounded-[7px]">
+        <span class="text-[15px] font-semibold tracking-[-0.01em]">pile</span>
+      </a>
+      <nav class="flex items-center gap-1 text-[13px] font-medium" aria-label="主导航">
+        <a href="#features" class="nav-link hidden sm:inline-flex">功能</a>
+        <a href="#start" class="nav-link hidden sm:inline-flex">上手</a>
+        <a href="https://github.com/akira1ce/pile" target="_blank" rel="noopener" class="nav-link" aria-label="GitHub">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+          </svg>
+          <span class="hidden sm:inline">GitHub</span>
+        </a>
+        <a href="https://github.com/akira1ce/pile/releases/download/1.1.0/pile-1.1.0.dmg" data-download class="ml-1 inline-flex h-8 items-center rounded-full bg-ink px-4 text-paper transition-opacity hover:opacity-85">下载</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section data-hero class="relative overflow-hidden px-5 pb-16 pt-28 sm:px-8 sm:pb-20 sm:pt-36">
+      <div class="mx-auto max-w-3xl text-center">
+        <p data-hero-item class="inline-flex items-center gap-2 rounded-full border border-line bg-surface/60 px-3.5 py-1.5 text-[12px] font-medium text-muted">
+          <span class="h-1.5 w-1.5 rounded-full bg-ink/70"></span>
+          macOS 26+ · 菜单栏常驻
+        </p>
+        <h1 data-hero-item class="mt-6 text-balance text-[clamp(2.7rem,6vw,4.7rem)] font-semibold leading-[1.04] tracking-[-0.03em]">
+          把窗口摆整齐
+        </h1>
+        <p data-hero-item class="mx-auto mt-5 max-w-xl text-balance text-[17px] leading-7 text-muted sm:text-lg">
+          居中、收起、切换。三个快捷键，管好当前屏幕的所有窗口。
+        </p>
+        <div data-hero-item class="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <a href="https://github.com/akira1ce/pile/releases/download/1.1.0/pile-1.1.0.dmg" data-download class="btn-primary">
+            下载 for macOS
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 2.5v8m0 0 3-3m-3 3-3-3M3 12.5h10"/>
+            </svg>
+          </a>
+          <a href="https://github.com/akira1ce/pile" target="_blank" rel="noopener" class="btn-secondary">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/>
+            </svg>
+            查看源码
+          </a>
+        </div>
+        <p data-hero-item class="mt-4 text-[12px] text-muted">使用前需要授予辅助功能权限</p>
+      </div>
+
+      <div class="mx-auto mt-14 max-w-5xl sm:mt-20">
+        <div data-stage-frame class="stage-frame">
+          <div data-demo-stage class="demo-stage" aria-hidden="true">
+            <div data-demo-canvas class="demo-canvas"></div>
+          </div>
+        </div>
+        <p data-demo-caption class="mx-auto mt-4 max-w-xl text-center text-[13px] leading-6 text-muted">
+          按住 ⌥，用三个快捷键管理当前屏幕的窗口
+        </p>
+        <p class="sr-only">
+          演示动画：按住 Option 后，用数字键把当前窗口居中；用中点键收起或展开当前屏幕的窗口；用 Tab 键打开窗口切换器并选择目标窗口。
+        </p>
+      </div>
+    </section>
+
+    <section class="px-5 pb-20 sm:px-8 sm:pb-28">
+      <div class="mx-auto max-w-5xl">
+        <div data-reveal-group class="grid gap-3 sm:grid-cols-3">
+          <article data-reveal-item class="rounded-2xl border border-line bg-surface/55 p-6">
+            <div class="flex items-center gap-1.5 text-[12px]">
+              <kbd class="keycap">⌥</kbd>
+              <span class="text-muted">+</span>
+              <kbd class="keycap">1–5</kbd>
+            </div>
+            <h2 class="mt-5 text-[17px] font-semibold">居中窗口</h2>
+            <p class="mt-1.5 text-sm leading-6 text-muted">按屏幕比例把聚焦窗口居中到预设尺寸，最多保存五组。</p>
+          </article>
+          <article data-reveal-item class="rounded-2xl border border-line bg-surface/55 p-6">
+            <div class="flex items-center gap-1.5 text-[12px]">
+              <kbd class="keycap">⌥</kbd>
+              <span class="text-muted">+</span>
+              <kbd class="keycap">·</kbd>
+            </div>
+            <h2 class="mt-5 text-[17px] font-semibold">收起 / 展开</h2>
+            <p class="mt-1.5 text-sm leading-6 text-muted">把当前屏幕的窗口摞成一叠，再按一次按设定间距展开。</p>
+          </article>
+          <article data-reveal-item class="rounded-2xl border border-line bg-surface/55 p-6">
+            <div class="flex items-center gap-1.5 text-[12px]">
+              <kbd class="keycap">⌥</kbd>
+              <span class="text-muted">+</span>
+              <kbd class="keycap">Tab</kbd>
+            </div>
+            <h2 class="mt-5 text-[17px] font-semibold">切换窗口</h2>
+            <p class="mt-1.5 text-sm leading-6 text-muted">横向窗口条，直接选择目标，而不是顺序轮切。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="px-5 pb-20 sm:px-8 sm:pb-28">
+      <div data-reveal-group class="mx-auto mb-10 max-w-5xl sm:mb-12">
+        <p data-reveal-item class="eyebrow">功能</p>
+        <h2 data-reveal-item class="section-title">该有的细节，都留在了系统里</h2>
+      </div>
+
+      <div class="mx-auto grid max-w-5xl gap-3 md:grid-cols-3">
+        <article data-reveal-item class="feature-card md:col-span-2">
+          <div>
+            <h3>窗口切换器</h3>
+            <p>按住 ⌥ 连按 Tab，Liquid Glass 窗口条从屏幕中央浮现。按窗口而不是按应用排列，每扇窗口一个图标，选哪个就是哪个。</p>
+          </div>
+          <div class="mini-switcher" aria-hidden="true">
+            <span class="mini-switcher-item">
+              <span class="mini-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.2 3.6 5 3.6 8.5S14.4 18.3 12 20.5C9.6 18.3 8.4 15.5 8.4 12S9.6 5.7 12 3.5Z"/></svg>
+              </span>
+              <span>浏览</span>
+            </span>
+            <span class="mini-switcher-item is-active">
+              <span class="mini-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h8L19 8v12.5H6z"/><path d="M14 3.5V8h5M9 12h7M9 15.5h7"/></svg>
+              </span>
+              <span>笔记</span>
+            </span>
+            <span class="mini-switcher-item">
+              <span class="mini-icon">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 7.5h6l1.8 2h9.2v9.5H3.5z"/><path d="M3.5 7.5V5h6l1.8 2"/></svg>
+              </span>
+              <span>文件</span>
+            </span>
+          </div>
+        </article>
+
+        <article data-reveal-item class="feature-card">
+          <div>
+            <h3>悬停操作</h3>
+            <p>鼠标经过时，左上角才出现关闭与最小化按钮。安静，也不打断键盘选择。</p>
+          </div>
+          <div class="mini-window" aria-hidden="true">
+            <div class="mini-window-bar">
+              <span class="mini-lights"><i class="mini-dot"></i><i class="mini-dot"></i><i class="mini-dot"></i></span>
+              <span class="mini-hover-actions">
+                <span class="mini-action">×</span>
+                <span class="mini-action">−</span>
+              </span>
+            </div>
+            <div class="mini-lines">
+              <span class="mini-line w-4/5"></span>
+              <span class="mini-line w-3/5"></span>
+              <span class="mini-line w-2/3"></span>
+            </div>
+          </div>
+        </article>
+
+        <article data-reveal-item class="feature-card">
+          <div>
+            <h3>多显示器</h3>
+            <p>始终处理当前屏幕。没有聚焦窗口时，切换器使用鼠标所在的屏幕。</p>
+          </div>
+          <div class="flex items-end gap-2" aria-hidden="true">
+            <span class="mini-screen"></span>
+            <span class="mini-screen is-current"></span>
+          </div>
+        </article>
+
+        <article data-reveal-item class="feature-card">
+          <div>
+            <h3>自定义修饰键</h3>
+            <p>⌥、⌃、⇧ 任选一个，所有快捷键共用。改完立即生效。</p>
+          </div>
+          <div class="flex items-center gap-2" aria-hidden="true">
+            <kbd class="keycap is-active">⌥</kbd>
+            <kbd class="keycap">⌃</kbd>
+            <kbd class="keycap">⇧</kbd>
+          </div>
+        </article>
+
+        <article data-reveal-item class="feature-card">
+          <div>
+            <h3>平滑动画</h3>
+            <p>窗口先移动、再缩放，以 60 fps 步进完成。不喜欢动画可以一键关闭。</p>
+          </div>
+          <div class="mini-motion" aria-hidden="true">
+            <svg viewBox="0 0 180 52" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+              <path d="M20 38c28 0 34-26 62-26h24" stroke-dasharray="3 5"/>
+              <rect x="6" y="31" width="22" height="15" rx="3"/>
+              <rect x="108" y="5" width="22" height="15" rx="3"/>
+              <circle cx="152" cy="26" r="2.5" fill="currentColor" stroke="none"/>
+            </svg>
+          </div>
+        </article>
+
+        <article data-reveal-item class="feature-card feature-card--wide md:col-span-3">
+          <div>
+            <h3>安静地待在菜单栏</h3>
+            <p>没有 Dock 图标，也不占用桌面。登录后在菜单栏待命，所有动作和设置都能从菜单完成。</p>
+          </div>
+          <div class="mini-menubar" aria-hidden="true">
+            <img src="assets/appicon-256.png" width="18" height="18" alt="" class="h-[18px] w-[18px] rounded-[4px]">
+            <span class="mini-menubar-divider"></span>
+            <span class="mini-menubar-time">登录时启动</span>
+            <span class="mini-toggle"></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="start" class="px-5 pb-24 sm:px-8 sm:pb-32">
+      <div data-reveal-group class="mx-auto max-w-5xl">
+        <p data-reveal-item class="eyebrow">开始使用</p>
+        <h2 data-reveal-item class="section-title">三步就能用起来</h2>
+        <ol class="mt-9 grid gap-3 sm:grid-cols-3">
+          <li data-reveal-item class="step-card">
+            <span class="step-index">01</span>
+            <h3 class="mt-4 text-[15px] font-semibold">下载并安装</h3>
+            <p class="mt-1 text-sm leading-6 text-muted">把 pile.app 拖进「应用程序」文件夹，然后打开。</p>
+          </li>
+          <li data-reveal-item class="step-card">
+            <span class="step-index">02</span>
+            <h3 class="mt-4 text-[15px] font-semibold">授予辅助功能权限</h3>
+            <p class="mt-1 text-sm leading-6 text-muted">在「系统设置 → 隐私与安全性 → 辅助功能」中勾选 pile。</p>
+          </li>
+          <li data-reveal-item class="step-card">
+            <span class="step-index">03</span>
+            <h3 class="mt-4 text-[15px] font-semibold">按下快捷键</h3>
+            <p class="mt-1 text-sm leading-6 text-muted">关闭设置窗口，用 ⌥1–5 居中、⌥· 收起展开、⌥Tab 切换。</p>
+          </li>
+        </ol>
+        <p data-reveal-item class="mt-4 rounded-2xl border border-line bg-surface/45 px-5 py-4 text-[13px] leading-6 text-muted">
+          居中与收起 / 展开需要有一个聚焦的标准窗口；⌥Tab 没有这个限制，桌面无聚焦窗口时也能使用。
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-line px-5 py-10 sm:px-8">
+    <div class="mx-auto flex max-w-5xl flex-col items-center justify-between gap-5 text-[13px] text-muted sm:flex-row">
+      <div class="flex items-center gap-2.5">
+        <img src="assets/appicon-256.png" width="20" height="20" alt="" class="h-5 w-5 rounded-[5px]">
+        <span>pile · 把窗口摆整齐</span>
+      </div>
+      <div class="flex items-center gap-5">
+        <a href="https://github.com/akira1ce/pile" target="_blank" rel="noopener" class="transition-colors hover:text-ink">GitHub</a>
+        <a href="#top" class="transition-colors hover:text-ink">返回顶部</a>
+        <span>v1.1.0 · macOS 26+</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
