@@ -11,7 +11,13 @@ struct FocusSwitcherItem: Identifiable {
 
 @MainActor
 final class FocusSwitcherModel: ObservableObject {
-    @Published var selection = 0
+    @Published var items: [FocusSwitcherItem]
+    @Published var selection: Int
+
+    init(items: [FocusSwitcherItem], selection: Int) {
+        self.items = items
+        self.selection = selection
+    }
 }
 
 /// Shows every window on the active screen as an icon strip while the user holds
@@ -23,9 +29,8 @@ final class FocusSwitcherController {
 
     private var panel: FocusSwitcherPanel?
     private var model: FocusSwitcherModel?
-    private var items: [FocusSwitcherItem] = []
-    private var selection = 0
     private var focusedWindowID = ""
+    private var presentationDisplayID: CGDirectDisplayID?
     private var pendingSteps = 0
     private var isPresenting = false
     private var presentationToken = 0
@@ -57,19 +62,19 @@ final class FocusSwitcherController {
             Task { @MainActor [weak self] in
                 guard let self, self.presentationToken == token else { return }
                 self.isPresenting = false
-                guard windows.count > 1 else {
+                guard !windows.isEmpty else {
                     self.pendingSteps = 0
-                    self.onStatus("当前屏幕没有其他窗口")
+                    self.onStatus("当前屏幕没有可切换的窗口")
                     return
                 }
                 guard let target = displayID.flatMap(Self.screen(for:)) ?? NSScreen.main else {
                     self.pendingSteps = 0
                     return
                 }
-                self.items = windows.map(Self.item(for:))
-                self.selection = Self.wrap(self.pendingSteps, count: windows.count)
+                let items = windows.map(Self.item(for:))
+                let selection = Self.wrap(self.pendingSteps, count: items.count)
                 self.pendingSteps = 0
-                self.present(on: target)
+                self.present(items: items, selection: selection, on: target)
             }
         }
     }
@@ -79,24 +84,46 @@ final class FocusSwitcherController {
             pendingSteps += reverse ? -1 : 1
             return
         }
-        guard panel != nil, !items.isEmpty else { return }
-        selection = Self.wrap(selection + (reverse ? -1 : 1), count: items.count)
-        model?.selection = selection
+        guard let model, !model.items.isEmpty else { return }
+        model.selection = Self.wrap(model.selection + (reverse ? -1 : 1), count: model.items.count)
     }
 
     func pick(_ index: Int) {
-        guard panel != nil, items.indices.contains(index) else { return }
-        selection = index
-        model?.selection = index
+        guard let model, model.items.indices.contains(index) else { return }
+        model.selection = index
         commit()
     }
 
+    func close(_ index: Int) {
+        guard let model, model.items.indices.contains(index) else { return }
+        let window = model.items[index].window
+        let id = model.items[index].id
+        accessibility.close(window) { [weak self] succeeded in
+            Task { @MainActor [weak self] in
+                guard let self, succeeded else { return }
+                self.removeItem(id: id)
+            }
+        }
+    }
+
+    func minimize(_ index: Int) {
+        guard let model, model.items.indices.contains(index) else { return }
+        let window = model.items[index].window
+        let id = model.items[index].id
+        accessibility.minimize(window) { [weak self] succeeded in
+            Task { @MainActor [weak self] in
+                guard let self, succeeded else { return }
+                self.removeItem(id: id)
+            }
+        }
+    }
+
     func commit() {
-        guard panel != nil else {
+        guard let model, model.items.indices.contains(model.selection) else {
             cancelPending()
             return
         }
-        let chosen = items[selection]
+        let chosen = model.items[model.selection]
         let needsFocus = chosen.window.id != focusedWindowID
         dismiss()
         if needsFocus {
@@ -119,35 +146,13 @@ final class FocusSwitcherController {
         pendingSteps = 0
     }
 
-    private func present(on screen: NSScreen) {
-        let itemWidth: CGFloat = 92
-        let spacing: CGFloat = 10
-        let horizontalPadding: CGFloat = 24
-        let height: CGFloat = 108
-
-        let idealWidth = CGFloat(items.count) * itemWidth
-            + CGFloat(max(items.count - 1, 0)) * spacing
-            + horizontalPadding
-        let width = min(idealWidth, screen.visibleFrame.width * 0.82)
-
-        let model = FocusSwitcherModel()
-        model.selection = selection
+    private func present(items: [FocusSwitcherItem], selection: Int, on screen: NSScreen) {
+        let model = FocusSwitcherModel(items: items, selection: selection)
         self.model = model
+        presentationDisplayID = Self.displayID(of: screen)
 
         let panel = FocusSwitcherPanel()
-        panel.setContentSize(NSSize(width: width, height: height))
-        panel.contentView = FirstMouseHostingView(rootView: FocusSwitcherView(
-            items: items,
-            model: model,
-            width: width,
-            onPick: { [weak self] index in self?.pick(index) }
-        ))
-
-        let visibleFrame = screen.visibleFrame
-        panel.setFrameOrigin(NSPoint(
-            x: visibleFrame.midX - width / 2,
-            y: visibleFrame.midY - height / 2
-        ))
+        applyLayout(to: panel, model: model, on: screen)
         panel.alphaValue = animationsEnabled ? 0 : 1
         panel.orderFrontRegardless()
         self.panel = panel
@@ -160,12 +165,56 @@ final class FocusSwitcherController {
         }
     }
 
+    private func removeItem(id: String) {
+        guard let model, let index = model.items.firstIndex(where: { $0.id == id }) else { return }
+        model.items.remove(at: index)
+        guard !model.items.isEmpty else {
+            dismiss()
+            return
+        }
+        if index < model.selection {
+            model.selection -= 1
+        } else if model.selection >= model.items.count {
+            model.selection = model.items.count - 1
+        }
+        guard let panel, let displayID = presentationDisplayID,
+              let screen = Self.screen(for: displayID) else { return }
+        applyLayout(to: panel, model: model, on: screen)
+    }
+
+    /// Sizes and centers the panel for the current item count, then rebuilds the
+    /// content so the new width takes effect.
+    private func applyLayout(to panel: NSPanel, model: FocusSwitcherModel, on screen: NSScreen) {
+        let itemWidth: CGFloat = 92
+        let spacing: CGFloat = 10
+        let horizontalPadding: CGFloat = 24
+        let height: CGFloat = 108
+
+        let idealWidth = CGFloat(model.items.count) * itemWidth
+            + CGFloat(max(model.items.count - 1, 0)) * spacing
+            + horizontalPadding
+        let width = min(idealWidth, screen.visibleFrame.width * 0.82)
+
+        panel.setContentSize(NSSize(width: width, height: height))
+        panel.setFrameOrigin(NSPoint(
+            x: screen.visibleFrame.midX - width / 2,
+            y: screen.visibleFrame.midY - height / 2
+        ))
+        panel.contentView = FirstMouseHostingView(rootView: FocusSwitcherView(
+            model: model,
+            width: width,
+            onPick: { [weak self] index in self?.pick(index) },
+            onClose: { [weak self] index in self?.close(index) },
+            onMinimize: { [weak self] index in self?.minimize(index) }
+        ))
+    }
+
     private func dismiss() {
         presentationToken &+= 1
         pendingSteps = 0
         isPresenting = false
-        items = []
         model = nil
+        presentationDisplayID = nil
         guard let panel else { return }
         self.panel = nil
         panel.orderOut(nil)

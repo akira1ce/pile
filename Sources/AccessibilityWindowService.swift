@@ -416,6 +416,36 @@ final class AccessibilityWindowService: @unchecked Sendable {
         }
     }
 
+    func close(_ window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
+        guard window.processID != ProcessInfo.processInfo.processIdentifier else {
+            completion(false)
+            return
+        }
+
+        queue.async {
+            guard let button = self.axElement(self.attribute(window.accessibilityElement, kAXCloseButtonAttribute)) else {
+                completion(false)
+                return
+            }
+            completion(AXUIElementPerformAction(button, kAXPressAction as CFString) == .success)
+        }
+    }
+
+    func minimize(_ window: WindowIdentity, completion: @escaping @Sendable (Bool) -> Void) {
+        guard window.processID != ProcessInfo.processInfo.processIdentifier else {
+            completion(false)
+            return
+        }
+
+        queue.async {
+            completion(AXUIElementSetAttributeValue(
+                window.accessibilityElement,
+                kAXMinimizedAttribute as CFString,
+                kCFBooleanTrue
+            ) == .success)
+        }
+    }
+
     /// Focuses a window that may belong to a background app.
     ///
     /// `kAXRaiseAction` alone only reorders the window inside its own app, so the
