@@ -11,6 +11,8 @@ struct FeatureTourDemoView: View {
     @State private var zOrder = ["a", "b", "c"]
     @State private var sceneTitle = "居中预设"
     @State private var keycap = "1"
+    @State private var switcherVisible = false
+    @State private var switcherSelection = "b"
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -31,6 +33,13 @@ struct FeatureTourDemoView: View {
                 }
             }
 
+            if switcherVisible {
+                DemoSwitcherView(ids: ["a", "b", "c"], selection: switcherSelection)
+                    .frame(width: DemoLayout.size.width, height: DemoLayout.size.height)
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .zIndex(10)
+            }
+
             VStack {
                 HStack {
                     badge(sceneTitle)
@@ -40,6 +49,7 @@ struct FeatureTourDemoView: View {
                 Spacer()
             }
             .padding(12)
+            .zIndex(20)
         }
         .frame(width: DemoLayout.size.width, height: DemoLayout.size.height)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -132,30 +142,39 @@ struct FeatureTourDemoView: View {
     }
 
     private func playCycleScene() async {
-        sceneTitle = "切换窗口"
+        sceneTitle = "窗口切换器"
         keycap = "Tab"
+        switcherSelection = "b"
         withAnimation(.easeOut(duration: 0.2)) {
             frames = DemoLayout.frames(mode: .stacked)
-            focusedID = "b"
-            zOrder = ["a", "c", "b"]
-        }
-        await wait(900)
-
-        withAnimation(.easeOut(duration: 0.16)) {
-            focusedID = "c"
-            zOrder = ["a", "b", "c"]
-        }
-        await wait(900)
-
-        withAnimation(.easeOut(duration: 0.16)) {
             focusedID = "a"
             zOrder = ["b", "c", "a"]
         }
+        await wait(500)
+
+        withAnimation(.easeOut(duration: 0.22)) {
+            switcherVisible = true
+        }
         await wait(900)
+
+        for id in ["c", "a", "b"] {
+            withAnimation(.easeOut(duration: 0.16)) {
+                switcherSelection = id
+            }
+            await wait(850)
+        }
+
+        withAnimation(.easeOut(duration: 0.2)) {
+            switcherVisible = false
+            focusedID = "b"
+            zOrder = ["a", "c", "b"]
+        }
+        await wait(1000)
     }
 
     private func resetScene() async {
         withAnimation(.easeOut(duration: 0.2)) {
+            switcherVisible = false
             visibleIDs = ["a"]
             frames["a"] = DemoLayout.scattered
             focusedID = "a"
@@ -225,6 +244,53 @@ private enum DemoLayout {
         case "b": .purple
         default: .teal
         }
+    }
+
+    static func symbol(for id: String) -> String {
+        switch id {
+        case "a": "rectangle.stack"
+        case "b": "safari"
+        default: "terminal"
+        }
+    }
+}
+
+private struct DemoSwitcherView: View {
+    let ids: [String]
+    let selection: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(ids, id: \.self) { id in
+                VStack(spacing: 7) {
+                    Image(systemName: DemoLayout.symbol(for: id))
+                        .font(.system(size: 19, weight: .regular))
+                        .foregroundStyle(DemoLayout.tint(for: id))
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Color.primary.opacity(0.05),
+                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        )
+                    Text(DemoLayout.title(for: id))
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 68, height: 76)
+                .background {
+                    if selection == id {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.primary.opacity(0.08))
+                    }
+                }
+            }
+        }
+        .padding(9)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.55), lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.22), radius: 22, y: 10)
     }
 }
 
