@@ -132,7 +132,7 @@ struct FeatureTourDemoView: View {
     }
 
     private func playCycleScene() async {
-        sceneTitle = "轮换聚焦"
+        sceneTitle = "切换窗口"
         keycap = "Tab"
         withAnimation(.easeOut(duration: 0.2)) {
             frames = DemoLayout.frames(mode: .stacked)

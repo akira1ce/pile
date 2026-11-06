@@ -24,13 +24,11 @@ private let pileWindowHotKeyHandler: EventHandlerProcPtr = { _, event, userData 
 struct HotKeyHandlers: Sendable {
     let preset: @MainActor @Sendable (Int) -> Void
     let pile: @MainActor @Sendable () -> Void
-    let cycleFocus: @MainActor @Sendable () -> Void
 }
 
 @MainActor
 final class HotKeyManager {
     private static let pileIdentifier: UInt32 = 0
-    private static let cycleFocusIdentifier: UInt32 = 6
 
     private let signature: OSType = 0x50494C45 // PILE
     private var eventHandler: EventHandlerRef?
@@ -55,11 +53,6 @@ final class HotKeyManager {
             identifier: Self.pileIdentifier,
             modifier: modifier,
             handler: handlers.pile
-        ), registerFixed(
-            keyCode: UInt32(kVK_Tab),
-            identifier: Self.cycleFocusIdentifier,
-            modifier: modifier,
-            handler: handlers.cycleFocus
         ) else {
             unregisterLayoutHotKeys()
             return false

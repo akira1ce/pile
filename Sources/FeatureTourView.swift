@@ -58,7 +58,7 @@ struct FeatureTourView: View {
                 shortcutRow(keys: "\(modifierSymbol) + ·", title: "把当前屏幕的窗口展开 / 收起")
                 Divider()
                     .padding(.leading, 16)
-                shortcutRow(keys: "\(modifierSymbol) + Tab", title: "在当前屏幕的窗口之间轮换聚焦")
+                shortcutRow(keys: "\(modifierSymbol) + Tab", title: "打开窗口列表，选择要切换到的窗口")
             }
             .background(
                 Color(nsColor: .controlBackgroundColor).opacity(0.48),

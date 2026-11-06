@@ -7,6 +7,12 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let hotKeys = HotKeyManager()
     private let layouts = LayoutCoordinator()
     private let preferences = PreferencesStore()
+    private lazy var focusSwitcher = FocusSwitcherController(accessibility: accessibility) { [weak self] message in
+        guard let self else { return }
+        self.statusMessage = message
+        self.rebuildMenu()
+    }
+    private var focusMonitor: OptionTabMonitor?
     private var statusItem: NSStatusItem?
     private var permissionWindow: NSWindow?
     private var preferencesWindow: NSWindow?
@@ -56,6 +62,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         hotKeys.unregisterAll()
+        focusMonitor?.stop()
         observers.forEach(NotificationCenter.default.removeObserver)
     }
 
@@ -162,7 +169,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             menu.addItem(pile)
 
             let cycle = NSMenuItem(
-                title: "轮换聚焦",
+                title: "切换窗口",
                 action: #selector(selectCycleFocus),
                 keyEquivalent: "\t"
             )
@@ -280,14 +287,16 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 },
                 pile: { [weak self] in
                     self?.pile()
-                },
-                cycleFocus: { [weak self] in
-                    self?.cycleFocus()
                 }
             )
         )
         isReady = succeeded
-        statusMessage = succeeded ? shortcutsEnabledMessage : "快捷键注册失败"
+        let monitorInstalled = succeeded && installFocusSwitcherMonitor()
+        if succeeded {
+            statusMessage = monitorInstalled ? shortcutsEnabledMessage : "快捷键已启用，窗口切换监听失败"
+        } else {
+            statusMessage = "快捷键注册失败"
+        }
         rebuildMenu()
         return succeeded
     }
@@ -296,14 +305,29 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let modifier = preferences.preferences.modifier.symbol
         let count = preferences.preferences.presets.count
         let expand = preferences.preferences.expandMode.title
-        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + · \(expand) / 收起，\(modifier) + Tab 轮换聚焦"
+        return "快捷键已启用：\(modifier) + 1–\(count) 居中，\(modifier) + · \(expand) / 收起，\(modifier) + Tab 切换窗口"
     }
 
     private func leaveReadyState() {
         guard isReady else { return }
         hotKeys.unregisterLayoutHotKeys()
+        focusSwitcher.cancel()
+        focusMonitor?.stop()
+        focusMonitor = nil
         layouts.clearState()
         isReady = false
+    }
+
+    @discardableResult
+    private func installFocusSwitcherMonitor() -> Bool {
+        let monitor = focusMonitor ?? OptionTabMonitor()
+        focusMonitor = monitor
+        return monitor.start(
+            isSwitching: { [weak self] in self?.focusSwitcher.isActive ?? false },
+            onStep: { [weak self] reverse in self?.focusSwitchStep(reverse: reverse) },
+            onCommit: { [weak self] in self?.focusSwitcher.commit() },
+            onCancel: { [weak self] in self?.focusSwitcher.cancel() }
+        )
     }
 
     private func showPermissionGuide() {
@@ -422,7 +446,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func selectCycleFocus() {
-        cycleFocus()
+        focusSwitchStep(reverse: false)
     }
 
     @objc private func openPermissionGuide() {
@@ -490,26 +514,27 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    /// Focuses the bottom-most window of the screen. Raising it makes it frontmost,
-    /// so the next press takes the new bottom and the whole stack gets walked in
-    /// order. Picking the window *behind* the focused one instead would only ever
-    /// swap the same two, because the raised window lands above the one it replaced.
-    private func cycleFocus() {
+    /// Opens the switcher on the first step and only moves its highlight after
+    /// that; committing belongs to the switcher so repeated presses don't raise
+    /// intermediate windows.
+    private func focusSwitchStep(reverse: Bool) {
+        if focusSwitcher.isActive {
+            focusSwitcher.advance(reverse: reverse)
+            return
+        }
         withAdjustableWindow { [weak self] focused, screen, _ in
             guard let self else { return }
-            self.accessibility.windows(on: screen, focusedWindowID: focused.id) { [weak self] visibleWindows in
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    guard let next = visibleWindows.last, next.id != focused.id else {
-                        self.statusMessage = "当前屏幕没有其他窗口"
-                        self.rebuildMenu()
-                        return
-                    }
-                    // AXRaise only reorders inside an app, so the owning app has to
-                    // be brought forward with it.
-                    self.accessibility.focus(next) { _ in }
-                }
+            // Another press can land while the window list is still being built.
+            if self.focusSwitcher.isActive {
+                self.focusSwitcher.advance(reverse: reverse)
+                return
             }
+            self.focusSwitcher.begin(
+                focused: focused,
+                screen: screen,
+                animationsEnabled: self.preferences.preferences.animationsEnabled,
+                initialStep: reverse ? -1 : 1
+            )
         }
     }
 

@@ -256,7 +256,7 @@ struct SettingsView: View {
             Divider()
                 .padding(.leading, 16)
             shortcutRow(
-                title: "轮换聚焦",
+                title: "切换窗口",
                 keys: "\(modifier) + Tab"
             )
         }
