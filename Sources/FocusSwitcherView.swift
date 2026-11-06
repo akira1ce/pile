@@ -6,6 +6,7 @@ struct FocusSwitcherView: View {
     @ObservedObject var model: FocusSwitcherModel
     let width: CGFloat
     let onPick: (Int) -> Void
+    @State private var hoveredIndex: Int?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -27,16 +28,15 @@ struct FocusSwitcherView: View {
             }
         }
         .frame(width: width, height: 108)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .glassEffect(
+            .regular.interactive(),
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
     }
 
     private func itemView(_ item: FocusSwitcherItem, index: Int) -> some View {
         let isSelected = index == model.selection
+        let isHovered = index == hoveredIndex
         let caption = item.title.isEmpty ? item.appName : item.title
         return Button {
             onPick(index)
@@ -57,11 +57,23 @@ struct FocusSwitcherView: View {
             .frame(width: 92)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(isSelected ? Color.primary.opacity(0.1) : Color.clear)
+                    .fill(isSelected ? Color.primary.opacity(0.12)
+                          : isHovered ? Color.primary.opacity(0.06)
+                          : Color.clear)
             }
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
         .buttonStyle(.plain)
+        .scaleEffect(isSelected ? 1.06 : (isHovered ? 1.04 : 1))
+        .animation(.snappy(duration: 0.18), value: isSelected)
+        .animation(.snappy(duration: 0.18), value: isHovered)
+        .onHover { hovering in
+            if hovering {
+                hoveredIndex = index
+            } else if hoveredIndex == index {
+                hoveredIndex = nil
+            }
+        }
         .help(item.title.isEmpty ? item.appName : "\(item.appName) — \(item.title)")
         .accessibilityLabel(item.title.isEmpty ? item.appName : "\(item.appName)，\(item.title)")
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
