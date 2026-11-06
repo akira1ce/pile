@@ -4,119 +4,121 @@
 
 # pile
 
-**三个快捷键，把当前屏幕的窗口摆整齐 —— 居中、收起 / 展开、切换**
+**Three shortcuts to tidy up the windows on your current screen — center, pile, switch**
 
 Swift 6 · SwiftPM · AppKit + SwiftUI · macOS 26+
 
-[![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-blue?logo=apple)](#构建与运行)
+[![Platform](https://img.shields.io/badge/platform-macOS%2026%2B-blue?logo=apple)](#build--run)
 [![Swift](https://img.shields.io/badge/Swift-6.0-F05138?logo=swift&logoColor=white)](Package.swift)
-[![UI](https://img.shields.io/badge/UI-SwiftUI%20%2B%20AppKit-0A84FF)](#架构)
+[![UI](https://img.shields.io/badge/UI-SwiftUI%20%2B%20AppKit-0A84FF)](#architecture)
+
+[English](README.md) · [简体中文](README.zh-CN.md)
 
 </div>
 
-## 功能
+## Features
 
-- 🎯 **居中预设** — 用同一个修饰键加数字键，把聚焦窗口居中到预设尺寸。默认三个、最多五个，宽高按屏幕百分比调节
-- 🗂 **收起 / 展开** — 一键把当前屏幕的窗口居中摞成一叠，再按一次按设定的方式摊开；整叠沿用聚焦窗口的尺寸，间距可调
-- ⇥ **窗口切换器** — 按住修饰键再按 Tab，屏幕中央弹出横向窗口条，直接选目标而不是顺序轮切；悬停显示关闭 / 最小化按钮，容器使用 Liquid Glass
-- 🖥 **菜单栏常驻** — 无 Dock 图标、无主窗口；菜单里可触发所有动作、查看当前状态、打开设置与功能介绍
-- ⌨️ **可配置快捷键** — 所有快捷键共用一个修饰键（⌥ / ⌃ / ⇧），默认 ⌥，修改后立即重新注册
-- 🚀 **登录时启动** — 基于 `SMAppService`，可在设置里开关；作为登录项启动时安静地待在菜单栏
-- 🖥 **多显示器** — 窗口操作始终针对「当前屏幕」；没有聚焦窗口时，切换器使用鼠标所在屏幕
-- ✨ **平滑动画** — 窗口先移动、再缩放，可在设置中关闭
-- 🧭 **首次引导** — 首次启动引导授权辅助功能并播放内置演示，之后可从菜单再次打开
+- 🎯 **Presets** — Center the focused window at a preset size with the modifier plus a number key. Three presets by default, up to five; width and height are set as screen percentages
+- 🗂 **Pile / expand** — Pile every window on the current screen into a centered stack, then spread it out with another press. The stack takes the focused window's size, and spacing is adjustable
+- ⇥ **Window switcher** — Hold the modifier and press Tab for a horizontal strip in the center of the screen, so you pick a window directly instead of cycling. Hover reveals close / minimize buttons; the panel uses Liquid Glass
+- 🖥 **Menu bar app** — No Dock icon, no main window. Trigger every action, check status, and open Settings or the feature tour from the menu
+- ⌨️ **Configurable shortcuts** — All shortcuts share one modifier (⌥ / ⌃ / ⇧, default ⌥) and re-register immediately when changed
+- 🚀 **Launch at login** — Powered by `SMAppService`. When launched at login it stays quietly in the menu bar
+- 🖥 **Multiple displays** — Actions always target the current screen; the switcher uses the screen under the mouse when no window is focused
+- ✨ **Smooth animation** — Windows move first, then resize. Can be disabled in Settings
+- 🧭 **First-run guide** — Walks through the accessibility permission and plays a built-in demo; reopen it from the menu anytime
 
-### 快捷键
+### Shortcuts
 
-所有快捷键共用设置里的修饰键（默认 ⌥）。
+All shortcuts use the modifier from Settings (⌥ by default).
 
-| 快捷键 | 作用 |
+| Shortcut | Action |
 | --- | --- |
-| `⌥ + 1–5` | 把聚焦窗口居中到对应预设尺寸 |
-| `⌥ + ·` | 收起 / 展开当前屏幕的窗口 |
-| `⌥ + Tab` | 打开窗口切换器，选择要切换到的窗口 |
+| `⌥ + 1–5` | Center the focused window at the matching preset size |
+| `⌥ + ·` | Pile / expand the windows on the current screen |
+| `⌥ + Tab` | Open the window switcher and pick a window |
 
-窗口切换器打开后：
+After the switcher opens:
 
-| 操作 | 作用 |
+| Action | Effect |
 | --- | --- |
-| 按住 `⌥` 连按 `Tab` / `⇧ + Tab` | 向后 / 向前移动高亮 |
-| `←` / `→` | 移动高亮 |
-| `Return` | 切换到高亮窗口 |
-| `Esc` | 取消 |
-| 松开 `⌥` | 切换到高亮窗口 |
-| 点击图标 | 切换到该窗口 |
+| Hold `⌥` and press `Tab` / `⇧ + Tab` | Move the highlight forward / backward |
+| `←` / `→` | Move the highlight |
+| `Return` | Switch to the highlighted window |
+| `Esc` | Cancel |
+| Release `⌥` | Switch to the highlighted window |
+| Click an icon | Switch to that window |
 
-> 居中、收起 / 展开需要有一个聚焦的标准窗口，且设置窗口已关闭；`⌥ + Tab` 没有这个限制，桌面无聚焦窗口时也能使用。
+> Centering and pile / expand require a focused standard window and a closed Settings window; `⌥ + Tab` works even on an empty desktop.
 
-## 构建与运行
+## Build & Run
 
-需要 **macOS 26+** 与 **Xcode 26+**（Swift 6）。
+Requires **macOS 26+** and **Xcode 26+** (Swift 6).
 
 ```bash
-# 调试构建，产物在 build/pile.app
+# Debug build, output in build/pile.app
 ./Scripts/build-app.sh debug
 open build/pile.app
 
-# Release 构建
+# Release build
 ./Scripts/build-app.sh release
 ```
 
-也可以直接用 SwiftPM：
+You can also build with SwiftPM directly:
 
 ```bash
 swift build
 ```
 
-### 打包 DMG
+### Package a DMG
 
 ```bash
 ./Scripts/build-dmg.sh
-# 输出 build/pile-<version>.dmg
+# Output: build/pile-<version>.dmg
 ```
 
-脚本会构建 Release 应用、生成拖拽安装布局并进行 ad-hoc 签名。产物未经过公证；首次打开时请右键点击图标选择「打开」。若要在设置里启用「登录时启动」，请先把 pile.app 放进「应用程序」文件夹。
+The script builds a Release app, lays out the drag-to-install window, and ad-hoc signs it. The build is not notarized; right-click the icon and choose "Open" the first time. To use Launch at Login, move pile.app into Applications first.
 
-### 首次运行
+### First run
 
-1. 启动 pile，按引导在「系统设置 → 隐私与安全性 → 辅助功能」中勾选 pile
-2. 授权后自动进入功能介绍与设置窗口
-3. 关闭设置窗口后，居中与收起 / 展开快捷键即可使用
+1. Launch pile and follow the guide to enable it under System Settings → Privacy & Security → Accessibility
+2. After granting access, the feature tour and Settings open automatically
+3. Close Settings and the centering / pile shortcuts become available
 
-## 工作原理与权限
+## How it works & permissions
 
-- **辅助功能** — 通过 `AXUIElement` 读取窗口位置、尺寸、最小化状态，并执行移动、缩放、关闭、最小化、聚焦与置顶；未授权时快捷键不可用，菜单会提供引导
-- **窗口发现** — 用 `CGWindowListCopyWindowInfo` 获取屏幕上的窗口层级，再用 AX 窗口列表按标题、角色匹配，只保留当前屏幕的标准窗口，顺序即系统的前后层级
-- **全局快捷键** — 预设与 `·` 使用 Carbon `RegisterEventHotKey`；`⌥ + Tab` 需要按下 / 松开语义，改由会话级 `CGEvent` tap 处理，被系统禁用后会自动重新启用
-- **切换器浮层** — 非激活的 `NSPanel`（`.nonactivatingPanel`、`popUpMenu` 层级、可加入所有空间），不会抢走当前应用的焦点，悬停与点击也不改变系统焦点
-- **堆叠状态** — 按显示器 UUID 记录收起布局，只有未被扰动的收起状态才会展开；切换桌面空间或显示器时清空
-- **无后台服务** — 单进程菜单栏应用，无网络请求，偏好只保存在本机 `UserDefaults`
+- **Accessibility** — Reads window position, size, and minimized state through `AXUIElement`, and moves, resizes, closes, minimizes, focuses, and raises windows. Without access the shortcuts are unavailable and the menu offers a guide
+- **Window discovery** — Uses `CGWindowListCopyWindowInfo` for on-screen ordering, then matches AX windows by title and role. Only standard windows on the current screen are kept, in front-to-back order
+- **Global shortcuts** — Presets and `·` use Carbon `RegisterEventHotKey`; `⌥ + Tab` needs press / release semantics, so it goes through a session-level `CGEvent` tap that is re-enabled automatically if the system disables it
+- **Switcher panel** — A non-activating `NSPanel` (`.nonactivatingPanel`, `popUpMenu` level, joins all spaces) that never steals focus; hovering and clicking do not change system focus either
+- **Pile state** — Collapsed layouts are tracked per display UUID; only an untouched collapsed pile expands, and the state is cleared when the space or display changes
+- **No background service** — A single menu bar process with no network requests; preferences live in local `UserDefaults` only
 
-## 架构
+## Architecture
 
 ```
 Sources/
-├─ main.swift                       # NSApplication 启动入口
-├─ AppController.swift              # 菜单栏、快捷键注册、权限状态、设置与引导窗口
-├─ HotKeyManager.swift              # Carbon 全局快捷键（预设、收起 / 展开）
-├─ OptionTabMonitor.swift           # CGEvent tap（⌥ + Tab 按住 / 松开、方向键、确认、取消）
-├─ AccessibilityWindowService.swift # 窗口发现、移动 / 缩放动画、关闭 / 最小化 / 聚焦
-├─ FocusSwitcher.swift              # 切换器控制器、数据模型、非激活面板
-├─ FocusSwitcherView.swift          # Liquid Glass 横向窗口条与悬停操作
-├─ LayoutCoordinator.swift          # 按屏幕维护收起状态，决定收起还是展开
-├─ WindowGeometry.swift             # 屏幕几何、预设、堆叠排布计算
-├─ PreferencesStore.swift           # 偏好持久化与校验（UserDefaults + Codable）
-├─ SettingsView.swift               # 侧边栏式设置（通用 / 展开方式 / 窗口预设 / 关于）
-├─ FeatureTourView.swift            # 首次功能介绍
-├─ FeatureTourDemoView.swift        # 功能介绍中的动画演示
-├─ PermissionOnboardingView.swift   # 辅助功能权限引导
-├─ LaunchAtLogin.swift              # SMAppService 登录项
-└─ WindowAnimation.swift            # 动画缓动曲线
+├─ main.swift                       # NSApplication entry point
+├─ AppController.swift              # Menu bar, shortcut registration, permission state, Settings and tour windows
+├─ HotKeyManager.swift              # Carbon global hot keys (presets, pile / expand)
+├─ OptionTabMonitor.swift           # CGEvent tap (⌥ + Tab press / release, arrows, confirm, cancel)
+├─ AccessibilityWindowService.swift # Window discovery, move / resize animation, close / minimize / focus
+├─ FocusSwitcher.swift              # Switcher controller, data model, non-activating panel
+├─ FocusSwitcherView.swift          # Liquid Glass window strip and hover actions
+├─ LayoutCoordinator.swift          # Per-screen pile state; decides collapse or expand
+├─ WindowGeometry.swift             # Screen geometry, presets, pile layout math
+├─ PreferencesStore.swift           # Preference persistence and validation (UserDefaults + Codable)
+├─ SettingsView.swift               # Sidebar settings (General / Expand style / Presets / About)
+├─ FeatureTourView.swift            # First-run feature tour
+├─ FeatureTourDemoView.swift        # Animated demo inside the feature tour
+├─ PermissionOnboardingView.swift   # Accessibility permission onboarding
+├─ LaunchAtLogin.swift              # SMAppService login item
+└─ WindowAnimation.swift            # Animation easing curves
 ```
 
-## 已知边界
+## Known limitations
 
-- 最小化、全屏与非标准窗口（对话框、浮动面板等）不会出现在堆叠与切换器中
-- 切换器一次只处理一个屏幕，不会跨屏混合列表
-- 切换器不提供窗口实时预览、按应用分组或跨全屏空间切换
-- 个别应用的窗口可能拒绝 AX 调整或关闭 / 最小化操作，pile 会保持原状
+- Minimized, fullscreen, and non-standard windows (dialogs, floating panels) are excluded from the pile and the switcher
+- The switcher handles one screen at a time and never mixes windows across displays
+- No live window previews, per-app grouping, or switching across fullscreen spaces
+- Some apps may refuse AX resizing, closing, or minimizing; pile leaves them untouched
