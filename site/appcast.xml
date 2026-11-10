@@ -1,12 +1,38 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><!-- sparkle-sign-warning:
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
 IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
 --><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>pile updates</title>
-        <link>https://akira1ce.github.io/pile/</link>
-        <description>pile release updates</description>
+        <title>pile</title>
+        <item>
+            <title>1.2.0</title>
+            <pubDate>Tue, 10 Nov 2026 14:18:46 +0800</pubDate>
+            <link>https://akira1ce.github.io/pile/</link>
+            <sparkle:fullReleaseNotesLink>https://github.com/akira1ce/pile/releases/tag/1.2.0</sparkle:fullReleaseNotesLink>
+            <sparkle:version>5</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# pile v1.2.0
+
+## 更新内容
+
+- **应用内更新**：菜单栏和「关于 pile」新增「检查更新」，可以查看新版本说明、下载并安装更新，完成后重新启动 pile。
+- **自动检查更新**：默认定期检查新版本，可在「关于 pile」关闭；下载和安装由你确认。
+- **更新签名校验**：更新描述与安装包均使用独立的 EdDSA 签名验证，安装前校验下载内容。
+
+## 更新说明
+
+- 首次升级到包含更新功能的版本，需要手动安装一次；后续版本可在 pile 内更新。
+- 请退出旧版本，将新应用替换到「应用程序」文件夹，并从 `/Applications/pile.app` 运行。
+- 此版本使用 Apple Development 证书签名，未经过 Apple 公证；首次打开可能需要在「系统设置 → 隐私与安全性」允许打开。
+- 辅助功能授权仍由 macOS 管理。若升级后提示未授权，可在系统设置中删除旧条目，再添加新应用。
+
+需要 macOS 26 或更新版本。
+]]></description>
+            <enclosure url="https://github.com/akira1ce/pile/releases/download/1.2.0/pile-1.2.0.dmg" length="1538048" type="application/octet-stream" sparkle:edSignature="232zDxodwNdi8m12bZid5uAWfU1RUwawPXk1PkIWvo0CPM64pIkEmmyknbkd3aYUIrNLOASiaOzCQZW/udsSBw=="></enclosure>
+        </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: DfnH8ST40VPmYw7Y4ykPvfw4JcxgWeM+jkVubWXS7gksCTO2DpdsjUxiK1lTjLX9AyVoZqTRXuKlhhPTPYXnDg==
-length: 560
+edSignature: Y5NNzMpSv/6Zy1zSsHDx00SvQdt5vQKrTIPi4Fw0xLO9pTrx2tHgBVjosWnIi1h9chqfytQdDZB2Abxkvf+lAA==
+length: 2380
 -->
