@@ -12,8 +12,9 @@ private let optionTabEventCallback: CGEventTapCallBack = { _, type, event, userI
     let monitor = Unmanaged<OptionTabMonitor>.fromOpaque(userInfo).takeUnretainedValue()
     let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
     let flags = event.flags
+    let location = event.unflippedLocation
     let result = MainActor.assumeIsolated {
-        monitor.handle(type: type, keyCode: keyCode, flags: flags)
+        monitor.handle(type: type, keyCode: keyCode, flags: flags, location: location)
     }
     return result == .consume ? nil : Unmanaged.passUnretained(event)
 }
@@ -26,6 +27,7 @@ final class OptionTabMonitor {
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isSwitching: (@MainActor () -> Bool)?
+    private var containsPoint: (@MainActor (CGPoint) -> Bool)?
     private var onStep: (@MainActor (Bool) -> Void)?
     private var onCommit: (@MainActor () -> Void)?
     private var onCancel: (@MainActor () -> Void)?
@@ -33,18 +35,21 @@ final class OptionTabMonitor {
     @discardableResult
     func start(
         isSwitching: @escaping @MainActor () -> Bool,
+        containsPoint: @escaping @MainActor (CGPoint) -> Bool,
         onStep: @escaping @MainActor (Bool) -> Void,
         onCommit: @escaping @MainActor () -> Void,
         onCancel: @escaping @MainActor () -> Void
     ) -> Bool {
         stop()
         self.isSwitching = isSwitching
+        self.containsPoint = containsPoint
         self.onStep = onStep
         self.onCommit = onCommit
         self.onCancel = onCancel
 
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
             | CGEventMask(1 << CGEventType.flagsChanged.rawValue)
+            | CGEventMask(1 << CGEventType.leftMouseDown.rawValue)
             | CGEventMask(1 << CGEventType.tapDisabledByTimeout.rawValue)
             | CGEventMask(1 << CGEventType.tapDisabledByUserInput.rawValue)
 
@@ -80,6 +85,7 @@ final class OptionTabMonitor {
         tap = nil
         runLoopSource = nil
         isSwitching = nil
+        containsPoint = nil
         onStep = nil
         onCommit = nil
         onCancel = nil
@@ -88,10 +94,18 @@ final class OptionTabMonitor {
     fileprivate func handle(
         type: CGEventType,
         keyCode: Int,
-        flags: CGEventFlags
+        flags: CGEventFlags,
+        location: CGPoint
     ) -> OptionTabHandleResult {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            return .pass
+        }
+
+        if type == .leftMouseDown {
+            if isSwitching?() == true, containsPoint?(location) != true {
+                onCancel?()
+            }
             return .pass
         }
 

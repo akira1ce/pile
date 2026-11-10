@@ -48,6 +48,7 @@ Swift 6 · SwiftPM · AppKit + SwiftUI · macOS 26+
 | `Esc` | 取消 |
 | 松开 `⌥` | 切换到高亮窗口 |
 | 点击图标 | 切换到该窗口 |
+| 左键点击切换器外部 | 取消切换；点击仍正常作用于下方窗口 |
 
 > 居中、收起 / 展开需要有一个聚焦的标准窗口，且设置窗口已关闭；`⌥ + Tab` 没有这个限制，桌面无聚焦窗口时也能使用。
 
@@ -78,6 +79,12 @@ swift build
 ```
 
 脚本会构建 Release 应用、生成拖拽安装布局并进行 ad-hoc 签名。产物未经过公证；首次打开时请右键点击图标选择「打开」。若要在设置里启用「登录时启动」，请先把 pile.app 放进「应用程序」文件夹。
+
+### 更新后的辅助功能授权
+
+当前构建脚本使用 ad-hoc 签名，签名身份依赖可执行文件的哈希。重新构建后，新应用可能不再匹配旧的辅助功能授权，即使系统设置里仍显示 pile 已启用。这不是 pile 可以自行恢复的应用偏好。
+
+如果更新后提示没有权限，请退出 pile，在「系统设置 → 隐私与安全性 → 辅助功能」中删除旧的 pile 条目，重新添加 `/Applications/pile.app`，然后重新启动。请固定从「应用程序」文件夹运行。要在更新间保留授权，需要使用稳定的证书签名身份并保持相同的 Bundle ID；当前 ad-hoc 构建无法保证这一点。
 
 ### 首次运行
 
@@ -112,7 +119,7 @@ Sources/
 │  └─ WindowAnimation.swift            # 动画缓动曲线
 ├─ Input/
 │  ├─ HotKeyManager.swift              # Carbon 全局快捷键（预设、收起 / 展开）
-│  └─ OptionTabMonitor.swift           # CGEvent tap（按住 / 松开、方向键、确认、取消）
+│  └─ OptionTabMonitor.swift           # CGEvent tap（键盘与外部左键点击取消）
 └─ Features/
    ├─ FocusSwitcher/
    │  ├─ FocusSwitcher.swift           # 切换器控制器、数据模型、非激活面板

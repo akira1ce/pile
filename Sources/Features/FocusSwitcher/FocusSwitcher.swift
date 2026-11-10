@@ -43,6 +43,11 @@ final class FocusSwitcherController {
 
     var isActive: Bool { panel != nil || isPresenting }
 
+    /// Uses AppKit screen coordinates, matching CGEvent's unflipped location.
+    func contains(_ screenPoint: CGPoint) -> Bool {
+        panel?.frame.contains(screenPoint) ?? false
+    }
+
     func begin(
         anchor: WindowIdentity?,
         screen: NSScreen,

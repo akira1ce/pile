@@ -48,6 +48,7 @@ After the switcher opens:
 | `Esc` | Cancel |
 | Release `⌥` | Switch to the highlighted window |
 | Click an icon | Switch to that window |
+| Left-click outside the switcher | Cancel; the click still reaches the window underneath |
 
 > Centering and pile / expand require a focused standard window and a closed Settings window; `⌥ + Tab` works even on an empty desktop.
 
@@ -78,6 +79,12 @@ swift build
 ```
 
 The script builds a Release app, lays out the drag-to-install window, and ad-hoc signs it. The build is not notarized; right-click the icon and choose "Open" the first time. To use Launch at Login, move pile.app into Applications first.
+
+### Accessibility after an update
+
+The current build script uses ad-hoc signing. Its signing identity depends on the binary's hash, so a rebuilt app can stop matching an existing accessibility grant even while System Settings still lists pile as enabled. This is not an app preference that pile can restore itself.
+
+If an updated app reports no access, quit pile, remove its old entry under System Settings → Privacy & Security → Accessibility, add `/Applications/pile.app` again, and relaunch it. Keep the installed app in Applications. Retaining access across updates requires a stable certificate-based signing identity and the same bundle identifier; the current ad-hoc builds cannot guarantee it.
 
 ### First run
 
@@ -112,7 +119,7 @@ Sources/
 │  └─ WindowAnimation.swift            # Animation easing curves
 ├─ Input/
 │  ├─ HotKeyManager.swift              # Carbon global hot keys (presets, pile / expand)
-│  └─ OptionTabMonitor.swift           # CGEvent tap (press / release, arrows, confirm, cancel)
+│  └─ OptionTabMonitor.swift           # CGEvent tap (keyboard and outside left-click cancellation)
 └─ Features/
    ├─ FocusSwitcher/
    │  ├─ FocusSwitcher.swift           # Switcher controller, data model, non-activating panel

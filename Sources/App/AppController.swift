@@ -324,6 +324,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         focusMonitor = monitor
         return monitor.start(
             isSwitching: { [weak self] in self?.focusSwitcher.isActive ?? false },
+            containsPoint: { [weak self] point in self?.focusSwitcher.contains(point) ?? false },
             onStep: { [weak self] reverse in self?.focusSwitchStep(reverse: reverse) },
             onCommit: { [weak self] in self?.focusSwitcher.commit() },
             onCancel: { [weak self] in self?.focusSwitcher.cancel() }
