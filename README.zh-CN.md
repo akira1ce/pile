@@ -88,9 +88,11 @@ Sparkle 框架及其辅助程序会一起嵌入，并使用同一张证书签名
 
 ### 发布更新
 
+完整步骤、签名设置、代理配置和常见报错见 [发布与应用内更新手册](docs/releasing.md)。
+
 1. 递增 `Resources/Info.plist` 中的版本号与 build number，编写 `docs/releases/<版本>.md`。
 2. 运行 `./Scripts/build-dmg.sh release`，得到 DMG 和暂存的已签名更新源 `build/updates/appcast.xml`，更新说明会嵌入其中。
-3. 在 GitHub 创建 Release，tag 使用版本号（例如 `1.2.0`），上传 `build/pile-<版本>.dmg`。
+3. 提交并推送本次代码，再在 GitHub 创建对应提交的 Release，tag 使用版本号（例如 `1.2.0`），上传 `build/pile-<版本>.dmg`。
 4. 运行 `./Scripts/publish-updates.sh`。它会验证本地签名、下载已上传的安装包确认内容一致，然后复制更新源到 `site/appcast.xml`。
 5. 提交更新源并推送到 `main`，现有 Pages 工作流会发布到 `https://akira1ce.github.io/pile/appcast.xml`。
 

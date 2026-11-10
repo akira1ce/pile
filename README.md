@@ -88,9 +88,11 @@ Sparkle and its helpers are embedded and signed with the same certificate. The f
 
 ### Publish an update
 
+See the [release and in-app update handbook (Chinese)](docs/releasing.md) for the full workflow, signing setup, proxy configuration and troubleshooting.
+
 1. Increase both version fields in `Resources/Info.plist` and add `docs/releases/<version>.md`.
 2. Run `./Scripts/build-dmg.sh release`. It generates the DMG and stages a signed feed in `build/updates/appcast.xml`; release notes are embedded.
-3. Create the GitHub Release with the version as its tag (for example `1.2.0`) and upload `build/pile-<version>.dmg`.
+3. Commit and push the release source, create a GitHub Release at that commit with the version as its tag (for example `1.2.0`), and upload `build/pile-<version>.dmg`.
 4. Run `./Scripts/publish-updates.sh`. It verifies the local signatures and downloads the uploaded asset to ensure it matches before copying the feed to `site/appcast.xml`.
 5. Commit and push the updated feed to `main`; the existing Pages workflow deploys it to `https://akira1ce.github.io/pile/appcast.xml`.
 
