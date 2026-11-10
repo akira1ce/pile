@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIGURATION="${1:-debug}"
+PILE_SIGN_IDENTITY="${PILE_SIGN_IDENTITY:-E4AA3D29A59D3306655EE1BCC796285EE8260AF2}"
 
 case "$CONFIGURATION" in
     debug|release) ;;
@@ -29,6 +30,6 @@ cp ".build/$CONFIGURATION/pile" "$APP_BUNDLE/Contents/MacOS/pile"
 cp "Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp "Resources/PkgInfo" "$APP_BUNDLE/Contents/PkgInfo"
 cp "icon/macos/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
-codesign --force --deep --sign - "$APP_BUNDLE"
+codesign --force --options runtime --timestamp --sign "$PILE_SIGN_IDENTITY" "$APP_BUNDLE"
 
 echo "Built $APP_BUNDLE"

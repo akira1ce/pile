@@ -78,13 +78,13 @@ swift build
 # Output: build/pile-<version>.dmg
 ```
 
-The script builds a Release app, lays out the drag-to-install window, and ad-hoc signs it. The build is not notarized; right-click the icon and choose "Open" the first time. To use Launch at Login, move pile.app into Applications first.
+The script builds a Release app, lays out the drag-to-install window, and signs the app with a fixed Apple Development certificate. The build machine needs the certificate and its private key. Set `PILE_SIGN_IDENTITY` to another certificate's SHA-1 fingerprint to override the default. The build is not notarized; right-click the icon and choose "Open" the first time. To use Launch at Login, move pile.app into Applications first.
 
 ### Accessibility after an update
 
-The current build script uses ad-hoc signing. Its signing identity depends on the binary's hash, so a rebuilt app can stop matching an existing accessibility grant even while System Settings still lists pile as enabled. This is not an app preference that pile can restore itself.
+The build script uses the same certificate across builds to keep the signing identity stable. Keep the signing certificate, bundle identifier, and installation path consistent across updates. Moving from the earlier ad-hoc builds to certificate signing may require granting accessibility access again once.
 
-If an updated app reports no access, quit pile, remove its old entry under System Settings → Privacy & Security → Accessibility, add `/Applications/pile.app` again, and relaunch it. Keep the installed app in Applications. Retaining access across updates requires a stable certificate-based signing identity and the same bundle identifier; the current ad-hoc builds cannot guarantee it.
+If an updated app reports no access, quit pile, remove its old entry under System Settings → Privacy & Security → Accessibility, add `/Applications/pile.app` again, and relaunch it. Keep the installed app in Applications and verify that access is retained when installing the next build.
 
 ### First run
 
