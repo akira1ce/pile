@@ -7,10 +7,17 @@ let package = Package(
     products: [
         .executable(name: "pile", targets: ["pile"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle.git", from: "2.10.1"),
+    ],
     targets: [
         .executableTarget(
             name: "pile",
-            path: "Sources"
+            dependencies: [.product(name: "Sparkle", package: "Sparkle")],
+            path: "Sources",
+            linkerSettings: [
+                .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"]),
+            ]
         ),
     ],
     swiftLanguageModes: [.v6]

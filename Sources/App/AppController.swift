@@ -7,6 +7,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let hotKeys = HotKeyManager()
     private let layouts = LayoutCoordinator()
     private let preferences = PreferencesStore()
+    private let updates = UpdateController()
     private lazy var focusSwitcher = FocusSwitcherController(accessibility: accessibility) { [weak self] message in
         guard let self else { return }
         self.statusMessage = message
@@ -25,6 +26,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusMessage = "正在检查辅助功能权限"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updates.start()
         preferences.onChange = { [weak self] oldValue, newValue in
             guard let self else { return }
             let hotKeyConfigurationChanged = oldValue.modifier != newValue.modifier
@@ -105,6 +107,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         about.target = NSApplication.shared
         appMenu.addItem(about)
+        appMenu.addItem(updates.makeMenuItem())
         appMenu.addItem(.separator())
 
         let settings = NSMenuItem(title: "设置…", action: #selector(openPreferences), keyEquivalent: ",")
@@ -187,6 +190,8 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settings.keyEquivalentModifierMask = [.command]
         settings.target = self
         menu.addItem(settings)
+
+        menu.addItem(updates.makeMenuItem())
 
         let tour = NSMenuItem(title: "功能介绍", action: #selector(openFeatureTour), keyEquivalent: "")
         tour.target = self
@@ -381,7 +386,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.contentView = NSHostingView(rootView: SettingsView(store: preferences))
+        window.contentView = NSHostingView(rootView: SettingsView(store: preferences, updates: updates))
         window.center()
         preferencesWindow = window
         NSApplication.shared.activate(ignoringOtherApps: true)

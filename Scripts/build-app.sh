@@ -12,6 +12,10 @@ case "$CONFIGURATION" in
 esac
 
 cd "$PROJECT_ROOT"
+if ! /usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" Resources/Info.plist >/dev/null 2>&1; then
+    echo "Run ./Scripts/setup-updates.sh once to configure the Sparkle signing key." >&2
+    exit 1
+fi
 mkdir -p ".build/clang-module-cache" ".build/swift-module-cache"
 MACOS_SDK_PATH="$(xcrun --sdk macosx --show-sdk-path)"
 echo "Using macOS SDK: $MACOS_SDK_PATH"
@@ -30,6 +34,21 @@ cp ".build/$CONFIGURATION/pile" "$APP_BUNDLE/Contents/MacOS/pile"
 cp "Resources/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 cp "Resources/PkgInfo" "$APP_BUNDLE/Contents/PkgInfo"
 cp "icon/macos/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+
+SPARKLE_SOURCE="$PROJECT_ROOT/.build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+if [[ ! -d "$SPARKLE_SOURCE" ]]; then
+    echo "Sparkle framework not found after building: $SPARKLE_SOURCE" >&2
+    exit 1
+fi
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+ditto "$SPARKLE_SOURCE" "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+SPARKLE_FRAMEWORK="$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+SPARKLE_CONTENTS="$SPARKLE_FRAMEWORK/Versions/B"
+# Sign inside out; retain Sparkle's helper entitlements.
+for component in "$SPARKLE_CONTENTS/Autoupdate" "$SPARKLE_CONTENTS/Updater.app" "$SPARKLE_CONTENTS/XPCServices/"*.xpc; do
+    codesign --force --options runtime --timestamp --preserve-metadata=entitlements --sign "$PILE_SIGN_IDENTITY" "$component"
+done
+codesign --force --options runtime --timestamp --sign "$PILE_SIGN_IDENTITY" "$SPARKLE_FRAMEWORK"
 codesign --force --options runtime --timestamp --sign "$PILE_SIGN_IDENTITY" "$APP_BUNDLE"
 
 echo "Built $APP_BUNDLE"

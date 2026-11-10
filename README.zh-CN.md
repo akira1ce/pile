@@ -24,6 +24,7 @@ Swift 6 · SwiftPM · AppKit + SwiftUI · macOS 26+
 - 🖥 **菜单栏常驻** — 无 Dock 图标、无主窗口；菜单里可触发所有动作、查看当前状态、打开设置与功能介绍
 - ⌨️ **可配置快捷键** — 所有快捷键共用一个修饰键（⌥ / ⌃ / ⇧），默认 ⌥，修改后立即重新注册
 - 🚀 **登录时启动** — 基于 `SMAppService`，可在设置里开关；作为登录项启动时安静地待在菜单栏
+- ⬆️ **应用内更新** — 基于 Sparkle 检查 GitHub 新版本，查看说明后确认下载、安装并重启；可在「关于 pile」关闭自动检查
 - 🖥 **多显示器** — 窗口操作始终针对「当前屏幕」；没有聚焦窗口时，切换器使用鼠标所在屏幕
 - ✨ **平滑动画** — 窗口先移动、再缩放，可在设置中关闭
 - 🧭 **首次引导** — 首次启动引导授权辅助功能并播放内置演示，之后可从菜单再次打开
@@ -57,6 +58,9 @@ Swift 6 · SwiftPM · AppKit + SwiftUI · macOS 26+
 需要 **macOS 26+** 与 **Xcode 26+**（Swift 6）。
 
 ```bash
+# 首次发布时执行一次：在登录钥匙串创建 Sparkle 更新密钥
+./Scripts/setup-updates.sh
+
 # 调试构建，产物在 build/pile.app
 ./Scripts/build-app.sh debug
 open build/pile.app
@@ -80,6 +84,20 @@ swift build
 
 脚本会构建 Release 应用、生成拖拽安装布局，并默认使用固定的 Apple Development 证书签名。构建机器需要安装该证书及其私钥；可通过 `PILE_SIGN_IDENTITY` 指定其他证书的 SHA-1 指纹来覆盖默认值。产物未经过公证；首次打开时请右键点击图标选择「打开」。若要在设置里启用「登录时启动」，请先把 pile.app 放进「应用程序」文件夹。
 
+Sparkle 框架及其辅助程序会一起嵌入，并使用同一张证书签名。首次设置在钥匙串的 `com.akira1ce.pile` 账户下创建独立 EdDSA 更新密钥，只有公钥写入 `Resources/Info.plist`。请安全备份私钥：后续更新必须使用原来的密钥。设置脚本会复用已有密钥，并拒绝与应用公钥不同的密钥。其他开发者可以使用仓库中的公钥编译；发布更新需要原私钥。
+
+### 发布更新
+
+1. 递增 `Resources/Info.plist` 中的版本号与 build number，编写 `docs/releases/<版本>.md`。
+2. 运行 `./Scripts/build-dmg.sh release`，得到 DMG 和暂存的已签名更新源 `build/updates/appcast.xml`，更新说明会嵌入其中。
+3. 在 GitHub 创建 Release，tag 使用版本号（例如 `1.2.0`），上传 `build/pile-<版本>.dmg`。
+4. 运行 `./Scripts/publish-updates.sh`。它会验证本地签名、下载已上传的安装包确认内容一致，然后复制更新源到 `site/appcast.xml`。
+5. 提交更新源并推送到 `main`，现有 Pages 工作流会发布到 `https://akira1ce.github.io/pile/appcast.xml`。
+
+如果 tag 带 `v`，打包时指定：`PILE_RELEASE_TAG=v1.2.0 ./Scripts/build-dmg.sh release`。请先上传安装包，再同步更新源，避免用户提前收到无法下载的更新。已签名的更新源不要手动修改。首次设置会为初始空更新源签名，此时检查更新显示没有新版本。
+
+含更新功能的首个版本仍需手动安装一次，后续可在 pile 内更新。默认自动检查新版本，下载和安装由用户确认；系统信息上报和静默安装均关闭。
+
 ### 更新后的辅助功能授权
 
 构建脚本在不同版本间使用同一张证书，保持签名身份稳定。更新时请保持相同的签名证书、Bundle ID 和安装路径。从之前的 ad-hoc 构建切换到证书签名时，可能需要重新授权一次。
@@ -99,7 +117,7 @@ swift build
 - **全局快捷键** — 预设与 `·` 使用 Carbon `RegisterEventHotKey`；`⌥ + Tab` 需要按下 / 松开语义，改由会话级 `CGEvent` tap 处理，被系统禁用后会自动重新启用
 - **切换器浮层** — 非激活的 `NSPanel`（`.nonactivatingPanel`、`popUpMenu` 层级、可加入所有空间），不会抢走当前应用的焦点，悬停与点击也不改变系统焦点
 - **堆叠状态** — 按显示器 UUID 记录收起布局，只有未被扰动的收起状态才会展开；切换桌面空间或显示器时清空
-- **无后台服务** — 单进程菜单栏应用，无网络请求，偏好只保存在本机 `UserDefaults`
+- **窗口管理留在本机** — 窗口信息与偏好保存在本机；Sparkle 通过 HTTPS 检查更新源和下载安装包，不上报系统信息
 
 ## 架构
 
@@ -129,10 +147,12 @@ Sources/
    │  ├─ PreferencesStore.swift        # 偏好持久化与校验（UserDefaults + Codable）
    │  ├─ LaunchAtLogin.swift           # SMAppService 登录项
    │  └─ FadingMaterialBackground.swift # 设置滚动内容的渐隐毛玻璃背景
-   └─ Onboarding/
-      ├─ PermissionOnboardingView.swift # 辅助功能权限引导
-      ├─ FeatureTourView.swift         # 首次功能介绍
-      └─ FeatureTourDemoView.swift     # 功能介绍中的动画演示
+   ├─ Onboarding/
+   │  ├─ PermissionOnboardingView.swift # 辅助功能权限引导
+   │  ├─ FeatureTourView.swift         # 首次功能介绍
+   │  └─ FeatureTourDemoView.swift     # 功能介绍中的动画演示
+   └─ Updates/
+      └─ UpdateController.swift       # Sparkle 生命周期、菜单操作与更新设置
 ```
 
 ## 已知边界

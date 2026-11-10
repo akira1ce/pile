@@ -24,6 +24,7 @@ Swift 6 · SwiftPM · AppKit + SwiftUI · macOS 26+
 - 🖥 **Menu bar app** — No Dock icon, no main window. Trigger every action, check status, and open Settings or the feature tour from the menu
 - ⌨️ **Configurable shortcuts** — All shortcuts share one modifier (⌥ / ⌃ / ⇧, default ⌥) and re-register immediately when changed
 - 🚀 **Launch at login** — Powered by `SMAppService`. When launched at login it stays quietly in the menu bar
+- ⬆️ **In-app updates** — Sparkle checks GitHub releases; review the release notes and confirm download, installation and restart. Automatic checks can be disabled in About
 - 🖥 **Multiple displays** — Actions always target the current screen; the switcher uses the screen under the mouse when no window is focused
 - ✨ **Smooth animation** — Windows move first, then resize. Can be disabled in Settings
 - 🧭 **First-run guide** — Walks through the accessibility permission and plays a built-in demo; reopen it from the menu anytime
@@ -57,6 +58,9 @@ After the switcher opens:
 Requires **macOS 26+** and **Xcode 26+** (Swift 6).
 
 ```bash
+# One-time release setup: create the Sparkle update key in the login keychain
+./Scripts/setup-updates.sh
+
 # Debug build, output in build/pile.app
 ./Scripts/build-app.sh debug
 open build/pile.app
@@ -80,6 +84,20 @@ swift build
 
 The script builds a Release app, lays out the drag-to-install window, and signs the app with a fixed Apple Development certificate. The build machine needs the certificate and its private key. Set `PILE_SIGN_IDENTITY` to another certificate's SHA-1 fingerprint to override the default. The build is not notarized; right-click the icon and choose "Open" the first time. To use Launch at Login, move pile.app into Applications first.
 
+Sparkle and its helpers are embedded and signed with the same certificate. The first setup creates a separate EdDSA key under the keychain account `com.akira1ce.pile` and records only its public key in `Resources/Info.plist`. Keep a secure backup of the private key: future updates must use the original key. Setup reuses an existing key and rejects a key that differs from the app's public key. Other developers can compile with the committed public key; publishing updates requires the original private key.
+
+### Publish an update
+
+1. Increase both version fields in `Resources/Info.plist` and add `docs/releases/<version>.md`.
+2. Run `./Scripts/build-dmg.sh release`. It generates the DMG and stages a signed feed in `build/updates/appcast.xml`; release notes are embedded.
+3. Create the GitHub Release with the version as its tag (for example `1.2.0`) and upload `build/pile-<version>.dmg`.
+4. Run `./Scripts/publish-updates.sh`. It verifies the local signatures and downloads the uploaded asset to ensure it matches before copying the feed to `site/appcast.xml`.
+5. Commit and push the updated feed to `main`; the existing Pages workflow deploys it to `https://akira1ce.github.io/pile/appcast.xml`.
+
+If your release tag includes `v`, set it when packaging: `PILE_RELEASE_TAG=v1.2.0 ./Scripts/build-dmg.sh release`. Upload first, then promote the feed, so users are only notified once the signed archive is available. Do not hand-edit a generated signed feed. The initial empty feed is signed during setup and reports no new updates.
+
+The first version containing Sparkle needs one manual installation. Subsequent releases can be installed inside pile. Automatic checks are enabled by default; downloading and installation require confirmation. System profiling and silent installation are disabled.
+
 ### Accessibility after an update
 
 The build script uses the same certificate across builds to keep the signing identity stable. Keep the signing certificate, bundle identifier, and installation path consistent across updates. Moving from the earlier ad-hoc builds to certificate signing may require granting accessibility access again once.
@@ -99,7 +117,7 @@ If an updated app reports no access, quit pile, remove its old entry under Syste
 - **Global shortcuts** — Presets and `·` use Carbon `RegisterEventHotKey`; `⌥ + Tab` needs press / release semantics, so it goes through a session-level `CGEvent` tap that is re-enabled automatically if the system disables it
 - **Switcher panel** — A non-activating `NSPanel` (`.nonactivatingPanel`, `popUpMenu` level, joins all spaces) that never steals focus; hovering and clicking do not change system focus either
 - **Pile state** — Collapsed layouts are tracked per display UUID; only an untouched collapsed pile expands, and the state is cleared when the space or display changes
-- **No background service** — A single menu bar process with no network requests; preferences live in local `UserDefaults` only
+- **Local window management** — Window information and preferences stay on the Mac. Sparkle uses HTTPS to check the update feed and download releases; it does not send system profiles
 
 ## Architecture
 
@@ -129,10 +147,12 @@ Sources/
    │  ├─ PreferencesStore.swift        # Preference persistence and validation (UserDefaults + Codable)
    │  ├─ LaunchAtLogin.swift           # SMAppService login item
    │  └─ FadingMaterialBackground.swift # Frosted background for scrolling settings content
-   └─ Onboarding/
-      ├─ PermissionOnboardingView.swift # Accessibility permission onboarding
-      ├─ FeatureTourView.swift         # First-run feature tour
-      └─ FeatureTourDemoView.swift     # Animated demo inside the feature tour
+   ├─ Onboarding/
+   │  ├─ PermissionOnboardingView.swift # Accessibility permission onboarding
+   │  ├─ FeatureTourView.swift         # First-run feature tour
+   │  └─ FeatureTourDemoView.swift     # Animated demo inside the feature tour
+   └─ Updates/
+      └─ UpdateController.swift       # Sparkle lifecycle, menu actions and update preferences
 ```
 
 ## Known limitations

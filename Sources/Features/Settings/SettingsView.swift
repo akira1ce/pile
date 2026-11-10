@@ -49,6 +49,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
 @MainActor
 struct SettingsView: View {
     @ObservedObject var store: PreferencesStore
+    @ObservedObject var updates: UpdateController
     @State private var selection: SettingsCategory = .general
     @State private var launchAtLoginEnabled = LaunchAtLogin.isEnabled
     @State private var launchAtLoginRequiresApproval = LaunchAtLogin.requiresApproval
@@ -479,6 +480,21 @@ struct SettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+
+                Button("检查更新…") {
+                    updates.checkForUpdates()
+                }
+                .disabled(!updates.canCheckForUpdates)
+
+                Toggle("自动检查更新", isOn: Binding(
+                    get: { updates.automaticallyChecksForUpdates },
+                    set: { updates.setAutomaticallyChecksForUpdates($0) }
+                ))
+                .toggleStyle(.checkbox)
+
+                Text("发现新版本后，由你确认下载并安装。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 28)
