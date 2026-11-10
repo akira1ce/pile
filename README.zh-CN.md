@@ -96,24 +96,36 @@ swift build
 
 ## 架构
 
+应用使用单个 SwiftPM 可执行 target，源码按职责分目录；功能专用的界面和配套代码放在一起。
+
 ```
 Sources/
-├─ main.swift                       # NSApplication 启动入口
-├─ AppController.swift              # 菜单栏、快捷键注册、权限状态、设置与引导窗口
-├─ HotKeyManager.swift              # Carbon 全局快捷键（预设、收起 / 展开）
-├─ OptionTabMonitor.swift           # CGEvent tap（⌥ + Tab 按住 / 松开、方向键、确认、取消）
-├─ AccessibilityWindowService.swift # 窗口发现、移动 / 缩放动画、关闭 / 最小化 / 聚焦
-├─ FocusSwitcher.swift              # 切换器控制器、数据模型、非激活面板
-├─ FocusSwitcherView.swift          # Liquid Glass 横向窗口条与悬停操作
-├─ LayoutCoordinator.swift          # 按屏幕维护收起状态，决定收起还是展开
-├─ WindowGeometry.swift             # 屏幕几何、预设、堆叠排布计算
-├─ PreferencesStore.swift           # 偏好持久化与校验（UserDefaults + Codable）
-├─ SettingsView.swift               # 侧边栏式设置（通用 / 展开方式 / 窗口预设 / 关于）
-├─ FeatureTourView.swift            # 首次功能介绍
-├─ FeatureTourDemoView.swift        # 功能介绍中的动画演示
-├─ PermissionOnboardingView.swift   # 辅助功能权限引导
-├─ LaunchAtLogin.swift              # SMAppService 登录项
-└─ WindowAnimation.swift            # 动画缓动曲线
+├─ App/
+│  ├─ main.swift                       # NSApplication 启动入口
+│  └─ AppController.swift              # 生命周期、菜单栏、权限、快捷键与窗口协调
+├─ Layout/
+│  ├─ LayoutCoordinator.swift          # 按屏幕维护收起状态，决定收起还是展开
+│  └─ WindowGeometry.swift             # 屏幕几何、预设、堆叠排布计算
+├─ WindowSystem/
+│  ├─ AccessibilityWindowService.swift # 窗口发现与 AX 窗口操作
+│  ├─ WindowIdentity.swift             # AX 窗口标识、元数据、位置更新与结果
+│  └─ WindowAnimation.swift            # 动画缓动曲线
+├─ Input/
+│  ├─ HotKeyManager.swift              # Carbon 全局快捷键（预设、收起 / 展开）
+│  └─ OptionTabMonitor.swift           # CGEvent tap（按住 / 松开、方向键、确认、取消）
+└─ Features/
+   ├─ FocusSwitcher/
+   │  ├─ FocusSwitcher.swift           # 切换器控制器、数据模型、非激活面板
+   │  └─ FocusSwitcherView.swift       # Liquid Glass 横向窗口条与悬停操作
+   ├─ Settings/
+   │  ├─ SettingsView.swift            # 侧边栏式设置（通用 / 展开方式 / 窗口预设 / 关于）
+   │  ├─ PreferencesStore.swift        # 偏好持久化与校验（UserDefaults + Codable）
+   │  ├─ LaunchAtLogin.swift           # SMAppService 登录项
+   │  └─ FadingMaterialBackground.swift # 设置滚动内容的渐隐毛玻璃背景
+   └─ Onboarding/
+      ├─ PermissionOnboardingView.swift # 辅助功能权限引导
+      ├─ FeatureTourView.swift         # 首次功能介绍
+      └─ FeatureTourDemoView.swift     # 功能介绍中的动画演示
 ```
 
 ## 已知边界

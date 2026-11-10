@@ -96,24 +96,36 @@ The script builds a Release app, lays out the drag-to-install window, and ad-hoc
 
 ## Architecture
 
+The app uses a single SwiftPM executable target. Source files are grouped by responsibility; feature-specific UI and support code stay together.
+
 ```
 Sources/
-├─ main.swift                       # NSApplication entry point
-├─ AppController.swift              # Menu bar, shortcut registration, permission state, Settings and tour windows
-├─ HotKeyManager.swift              # Carbon global hot keys (presets, pile / expand)
-├─ OptionTabMonitor.swift           # CGEvent tap (⌥ + Tab press / release, arrows, confirm, cancel)
-├─ AccessibilityWindowService.swift # Window discovery, move / resize animation, close / minimize / focus
-├─ FocusSwitcher.swift              # Switcher controller, data model, non-activating panel
-├─ FocusSwitcherView.swift          # Liquid Glass window strip and hover actions
-├─ LayoutCoordinator.swift          # Per-screen pile state; decides collapse or expand
-├─ WindowGeometry.swift             # Screen geometry, presets, pile layout math
-├─ PreferencesStore.swift           # Preference persistence and validation (UserDefaults + Codable)
-├─ SettingsView.swift               # Sidebar settings (General / Expand style / Presets / About)
-├─ FeatureTourView.swift            # First-run feature tour
-├─ FeatureTourDemoView.swift        # Animated demo inside the feature tour
-├─ PermissionOnboardingView.swift   # Accessibility permission onboarding
-├─ LaunchAtLogin.swift              # SMAppService login item
-└─ WindowAnimation.swift            # Animation easing curves
+├─ App/
+│  ├─ main.swift                       # NSApplication entry point
+│  └─ AppController.swift              # Lifecycle, menu bar, permissions, shortcut and window coordination
+├─ Layout/
+│  ├─ LayoutCoordinator.swift          # Per-screen pile state; decides collapse or expand
+│  └─ WindowGeometry.swift             # Screen geometry, presets, pile layout math
+├─ WindowSystem/
+│  ├─ AccessibilityWindowService.swift # Window discovery and AX window operations
+│  ├─ WindowIdentity.swift             # AX window identity, metadata, frame updates and results
+│  └─ WindowAnimation.swift            # Animation easing curves
+├─ Input/
+│  ├─ HotKeyManager.swift              # Carbon global hot keys (presets, pile / expand)
+│  └─ OptionTabMonitor.swift           # CGEvent tap (press / release, arrows, confirm, cancel)
+└─ Features/
+   ├─ FocusSwitcher/
+   │  ├─ FocusSwitcher.swift           # Switcher controller, data model, non-activating panel
+   │  └─ FocusSwitcherView.swift       # Liquid Glass window strip and hover actions
+   ├─ Settings/
+   │  ├─ SettingsView.swift            # Sidebar settings (General / Expand style / Presets / About)
+   │  ├─ PreferencesStore.swift        # Preference persistence and validation (UserDefaults + Codable)
+   │  ├─ LaunchAtLogin.swift           # SMAppService login item
+   │  └─ FadingMaterialBackground.swift # Frosted background for scrolling settings content
+   └─ Onboarding/
+      ├─ PermissionOnboardingView.swift # Accessibility permission onboarding
+      ├─ FeatureTourView.swift         # First-run feature tour
+      └─ FeatureTourDemoView.swift     # Animated demo inside the feature tour
 ```
 
 ## Known limitations
