@@ -400,7 +400,9 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         let view = FeatureTourView(
-            modifierSymbol: preferences.preferences.modifier.symbol
+            modifierSymbol: preferences.preferences.modifier.symbol,
+            presetCount: preferences.preferences.presets.count,
+            finishTitle: openSettingsWhenDone ? "前往设置" : "开始使用"
         ) { [weak self] in
             guard let self else { return }
             self.featureTourWindow?.close()
@@ -409,7 +411,7 @@ final class AppController: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
         }
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 740),
+            contentRect: NSRect(x: 0, y: 0, width: 860, height: 560),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

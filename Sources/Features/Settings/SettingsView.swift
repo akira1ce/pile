@@ -58,7 +58,7 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-                .frame(width: 200)
+                .frame(width: 190)
                 .background(Color(nsColor: .underPageBackgroundColor))
 
             Divider()
@@ -67,6 +67,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
+        .font(.system(size: 13))
         .ignoresSafeArea(.container, edges: .top)
         .onAppear {
             refreshLaunchAtLoginState()
@@ -126,7 +127,7 @@ struct SettingsView: View {
             .contentShape(Rectangle())
             .background(
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(isSelected ? Color.primary.opacity(0.08) : .clear)
+                    .fill(isSelected ? Color.accentColor.opacity(0.12) : .clear)
             )
         }
         .buttonStyle(.plain)
@@ -146,17 +147,17 @@ struct SettingsView: View {
         @ViewBuilder content: () -> Content
     ) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 20) {
                 content()
             }
-            .padding(.horizontal, 26)
-            .padding(.top, 22)
+            .padding(.horizontal, 24)
+            .padding(.top, 18)
             .padding(.bottom, 24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             pageHeader(category)
-                .padding(.horizontal, 26)
+                .padding(.horizontal, 24)
                 .padding(.top, 16)
                 .padding(.bottom, 14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -177,7 +178,7 @@ struct SettingsView: View {
                 )
             VStack(alignment: .leading, spacing: 2) {
                 Text(category.title)
-                    .font(.system(size: 19, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                 Text(category.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -187,6 +188,7 @@ struct SettingsView: View {
 
     private var generalPage: some View {
         page(.general) {
+            sectionHeading(title: "使用习惯", subtitle: "修改后立即生效")
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
                     VStack(alignment: .leading, spacing: 3) {
@@ -197,7 +199,7 @@ struct SettingsView: View {
                     }
                     Spacer()
                     modifierPicker
-                        .frame(width: 190)
+                        .frame(width: 164)
                 }
 
                 Divider()
@@ -212,6 +214,7 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .toggleStyle(.switch)
 
@@ -227,14 +230,15 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(launchAtLoginError == nil ? Color.secondary : Color.red)
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .toggleStyle(.switch)
             }
             .padding(18)
-            .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .settingsCard()
 
             VStack(alignment: .leading, spacing: 10) {
-                sectionHeading(title: "快捷键", subtitle: "关闭设置窗口后可用")
+                sectionHeading(title: "快捷键", subtitle: "居中和收起 / 展开需先关闭设置；窗口切换随时可用")
                 shortcutCard
             }
         }
@@ -261,7 +265,7 @@ struct SettingsView: View {
                 keys: "\(modifier) + Tab"
             )
         }
-        .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .settingsCard()
     }
 
     private func shortcutRow(title: String, keys: String) -> some View {
@@ -304,7 +308,7 @@ struct SettingsView: View {
                 }
             }
             .padding(18)
-            .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .settingsCard()
         }
     }
 
@@ -397,16 +401,17 @@ struct SettingsView: View {
     private func presetCard(index: Int, preset: WindowPresetSettings) -> some View {
         VStack(alignment: .leading, spacing: 15) {
             HStack(spacing: 10) {
-                Text("\(store.preferences.modifier.symbol) \(index + 1)")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color.accentColor.opacity(0.12), in: Capsule())
-                    .foregroundStyle(Color.accentColor)
+                presetPreview(preset)
 
-                Text("预设 \(index + 1)")
-                    .font(.subheadline.weight(.medium))
+                VStack(alignment: .leading, spacing: 7) {
+                    Text("预设 \(index + 1)")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("\(store.preferences.modifier.symbol) \(index + 1)")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                }
 
                 Spacer()
 
@@ -441,11 +446,26 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
-        .background(sectionSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+        .settingsCard()
+    }
+
+    private func presetPreview(_ preset: WindowPresetSettings) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.primary.opacity(0.04))
+            RoundedRectangle(cornerRadius: 3)
+                .fill(Color.accentColor.opacity(0.12))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 3)
+                        .strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 1)
+                }
+                .frame(
+                    width: max(3, 104 * preset.widthPercent / 100),
+                    height: max(3, 64 * preset.heightPercent / 100)
+                )
         }
+        .frame(width: 104, height: 64)
+        .accessibilityHidden(true)
     }
 
     private func percentageSlider(title: String, value: Binding<Double>) -> some View {
@@ -465,40 +485,63 @@ struct SettingsView: View {
 
     private var aboutPage: some View {
         page(.about) {
-            VStack(spacing: 18) {
+            HStack(spacing: 16) {
                 appIcon
-
-                VStack(spacing: 6) {
-                    Text("pile")
-                        .font(.title2.weight(.semibold))
-                    Text("版本 \(appVersion)")
-                        .font(.callout)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 10) {
+                        Text("pile")
+                            .font(.system(size: 22, weight: .semibold))
+                        Text(appVersion)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color.primary.opacity(0.05), in: Capsule())
+                    }
+                    Text("把当前屏幕的窗口摆整齐。")
                         .foregroundStyle(.secondary)
                 }
-
-                Text("把当前屏幕的窗口居中堆叠到一起的菜单栏工具。")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-
-                Button("检查更新…") {
-                    updates.checkForUpdates()
-                }
-                .disabled(!updates.canCheckForUpdates)
-
-                Toggle("自动检查更新", isOn: Binding(
-                    get: { updates.automaticallyChecksForUpdates },
-                    set: { updates.setAutomaticallyChecksForUpdates($0) }
-                ))
-                .toggleStyle(.checkbox)
-
-                Text("发现新版本后，由你确认下载并安装。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 28)
-            .background(sectionSurface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(20)
+            .settingsCard()
+
+            VStack(alignment: .leading, spacing: 10) {
+                sectionHeading(title: "软件更新", subtitle: "查看新版本说明，再确认下载与安装")
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("当前版本 \(appVersion)")
+                                .fontWeight(.medium)
+                            Text("安装完成后会重新启动 pile")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("检查更新…") {
+                            updates.checkForUpdates()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!updates.canCheckForUpdates)
+                    }
+                    Divider()
+                    Toggle(isOn: Binding(
+                        get: { updates.automaticallyChecksForUpdates },
+                        set: { updates.setAutomaticallyChecksForUpdates($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("自动检查更新")
+                            Text("发现新版时提醒你，下载和安装由你确认")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .toggleStyle(.switch)
+                }
+                .padding(18)
+                .settingsCard()
+            }
         }
     }
 
@@ -508,12 +551,12 @@ struct SettingsView: View {
             Image(nsImage: image)
                 .resizable()
                 .interpolation(.high)
-                .frame(width: 96, height: 96)
+                .frame(width: 56, height: 56)
         } else {
             Image(systemName: "rectangle.3.group")
-                .font(.system(size: 64))
+                .font(.system(size: 36))
                 .foregroundStyle(.secondary)
-                .frame(width: 96, height: 96)
+                .frame(width: 56, height: 56)
         }
     }
 
@@ -544,10 +587,6 @@ struct SettingsView: View {
         launchAtLoginRequiresApproval = LaunchAtLogin.requiresApproval
     }
 
-    private var sectionSurface: Color {
-        Color(nsColor: .controlBackgroundColor).opacity(0.48)
-    }
-
     private func sectionHeading(title: String, subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
@@ -568,13 +607,15 @@ struct SettingsView: View {
 }
 
 private extension View {
-    /// `.tabs` picker style is macOS 27-only; use segmented controls on 26.
-    @ViewBuilder
+    func settingsCard() -> some View {
+        background(Color(nsColor: .controlBackgroundColor).opacity(0.75), in: RoundedRectangle(cornerRadius: 14))
+            .overlay {
+                RoundedRectangle(cornerRadius: 14)
+                    .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+            }
+    }
+
     func settingsPickerStyle() -> some View {
-        if #available(macOS 27.0, *) {
-            pickerStyle(.tabs)
-        } else {
-            pickerStyle(.segmented)
-        }
+        pickerStyle(.segmented)
     }
 }

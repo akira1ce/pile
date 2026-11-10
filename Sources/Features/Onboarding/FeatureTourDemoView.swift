@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 struct FeatureTourDemoView: View {
     let modifierSymbol: String
+    let presetCount: Int
 
     @State private var frames: [String: WindowFrame] = ["a": DemoLayout.scattered]
     @State private var visibleIDs: Set<String> = ["a"]
@@ -61,7 +62,7 @@ struct FeatureTourDemoView: View {
     }
 
     private var backdrop: some View {
-        Color.white
+        Color(nsColor: .underPageBackgroundColor)
     }
 
     private func badge(_ text: String) -> some View {
@@ -107,9 +108,11 @@ struct FeatureTourDemoView: View {
         }
         await wait(950)
 
-        withAnimation(.easeOut(duration: 0.2)) {
-            frames["a"] = DemoLayout.presetTwo
-            keycap = "2"
+        if presetCount > 1 {
+            withAnimation(.easeOut(duration: 0.2)) {
+                frames["a"] = DemoLayout.presetTwo
+                keycap = "2"
+            }
         }
         await wait(1000)
     }
