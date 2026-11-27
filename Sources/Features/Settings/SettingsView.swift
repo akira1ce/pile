@@ -289,23 +289,16 @@ struct SettingsView: View {
     private var expandPage: some View {
         page(.expand) {
             VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Label("展开模式", systemImage: "square.on.square.squareshape")
-                        Text("收起后再次触发时的排列方式")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    expandModePicker
-                        .frame(width: 190)
+                VStack(alignment: .leading, spacing: 3) {
+                    Label("排列方式", systemImage: "square.on.square.squareshape")
+                    Text("收起后再次触发，按固定间距排列窗口")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-
-                if store.preferences.expandMode == .stacked {
-                    Divider()
-
-                    stackedGapSettings
-                }
+                expandModePicker
+                expandModePreview
+                Divider()
+                stackedGapSettings
             }
             .padding(18)
             .settingsCard()
@@ -326,12 +319,40 @@ struct SettingsView: View {
         .settingsPickerStyle()
     }
 
-    /// Only the selected expand mode shows its own options, so a mode's settings
-    /// never sit in the global section.
+    private var expandModePreview: some View {
+        GeometryReader { geometry in
+            let base = WindowFrame(x: (geometry.size.width - 120) / 2, y: 16, width: 120, height: 72)
+            let screen = ScreenGeometry(uuid: "preview", usableFrame: WindowFrame(x: 0, y: 0, width: geometry.size.width, height: geometry.size.height))
+            let windows = (0..<3).map { LayoutWindow(id: String($0), frame: base) }
+            if let arrangement = WindowGeometry.arrangement(
+                windows: windows, focusedWindowID: "0", base: base,
+                spacing: store.preferences.stacked.gap, screen: screen,
+                mode: store.preferences.expandMode
+            ) {
+                ZStack(alignment: .topLeading) {
+                    ForEach(arrangement.targets.reversed(), id: \.windowID) { target in
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .strokeBorder(Color.accentColor.opacity(0.6), lineWidth: 1)
+                            }
+                            .frame(width: target.frame.width, height: target.frame.height)
+                            .offset(x: target.frame.x, y: target.frame.y)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+        }
+        .frame(height: 144)
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 10))
+        .accessibilityHidden(true)
+    }
+
     private var stackedGapSettings: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("堆叠间距", systemImage: LayoutMode.stacked.symbol)
+                Label("排列间距", systemImage: store.preferences.expandMode.symbol)
                 Spacer()
                 valueBadge("\(Int(store.preferences.stacked.gap)) pt")
             }

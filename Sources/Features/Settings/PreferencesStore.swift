@@ -37,8 +37,7 @@ struct WindowPresetSettings: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// Configuration owned by the stacked expand mode. Each expand mode carries its
-/// own settings struct so its options stay out of the global preferences.
+/// Shared expansion gap; retains its stored name for compatibility with existing preferences.
 struct StackedModeSettings: Codable, Equatable, Sendable {
     var gap: Double
 

@@ -116,17 +116,19 @@ struct ScreenGeometry: Sendable {
 enum LayoutMode: String, CaseIterable, Codable, Identifiable, Sendable {
     case collapsed
     case stacked
+    case vertical
+    case horizontal
 
     var id: String { rawValue }
 
-    /// Collapsing has one shape; expanding will gain more (tiling, etc.) and this
-    /// is the list the settings picker offers.
-    static var expandModes: [LayoutMode] { [.stacked] }
+    static var expandModes: [LayoutMode] { [.stacked, .vertical, .horizontal] }
 
     var title: String {
         switch self {
         case .collapsed: "收起"
-        case .stacked: "堆叠"
+        case .stacked: "阶梯"
+        case .vertical: "纵向"
+        case .horizontal: "横向"
         }
     }
 
@@ -134,13 +136,17 @@ enum LayoutMode: String, CaseIterable, Codable, Identifiable, Sendable {
         switch self {
         case .collapsed: "square.stack.3d.down.right"
         case .stacked: "square.3.layers.3d"
+        case .vertical: "arrow.down"
+        case .horizontal: "arrow.right"
         }
     }
 
     var completedMessage: String {
         switch self {
         case .collapsed: "窗口已居中收起"
-        case .stacked: "窗口已堆叠"
+        case .stacked: "窗口已阶梯排列"
+        case .vertical: "窗口已纵向排列"
+        case .horizontal: "窗口已横向排列"
         }
     }
 }
@@ -149,9 +155,7 @@ struct WindowLayoutState: Sendable {
     let mode: LayoutMode
     let orderedWindowIDs: [String]
     let base: WindowFrame
-    /// What the gap means depends on the mode: a cascade step when stacked, unused
-    /// when collapsed. Holds the value in effect at apply time, so editing the
-    /// setting afterwards can't make an intact layout look disturbed.
+    /// Records the applied gap so later setting changes don't invalidate an intact layout.
     let spacing: Double
     let screenUUID: String
 }
@@ -238,11 +242,11 @@ enum WindowGeometry {
         switch mode {
         case .collapsed:
             return base
-        case .stacked:
+        case .stacked, .vertical, .horizontal:
             let shift = Double(index) * stackOffset(count: count, gap: spacing)
             return WindowFrame(
-                x: base.x + shift,
-                y: base.y + shift,
+                x: base.x + (mode == .vertical ? 0 : shift),
+                y: base.y + (mode == .horizontal ? 0 : shift),
                 width: base.width,
                 height: base.height
             )

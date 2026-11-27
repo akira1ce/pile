@@ -19,7 +19,7 @@ Swift 6 · SwiftPM · AppKit + SwiftUI · macOS 26+
 ## Features
 
 - 🎯 **Presets** — Center the focused window at a preset size with the modifier plus a number key. Three presets by default, up to five; width and height are set as screen percentages
-- 🗂 **Pile / expand** — Pile every window on the current screen into a centered stack, then spread it out with another press. The stack takes the focused window's size, and spacing is adjustable
+- 🗂 **Pile / expand** — Pile every window on the current screen into a centered stack, then spread it out with another press. The stack takes the focused window's size; expansion supports diagonal, vertical, and horizontal arrangements with a shared fixed spacing
 - ⇥ **Window switcher** — Hold the modifier and press Tab for a horizontal strip in the center of the screen, so you pick a window directly instead of cycling. Hover reveals close / minimize buttons; the panel uses Liquid Glass
 - 🖥 **Menu bar app** — No Dock icon, no main window. Trigger every action, check status, and open Settings or the feature tour from the menu
 - ⌨️ **Configurable shortcuts** — All shortcuts share one modifier (⌥ / ⌃ / ⇧, default ⌥) and re-register immediately when changed
