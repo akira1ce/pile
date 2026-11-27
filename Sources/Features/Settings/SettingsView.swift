@@ -376,7 +376,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("预设列表")
                         .font(.headline)
-                    Text("拖动滑块调整每个预设占屏幕的宽高比例")
+                    Text("拖动滑块或输入百分比，修改后立即生效")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -389,45 +389,51 @@ struct SettingsView: View {
                 .disabled(store.preferences.presets.count >= 5)
             }
 
-            VStack(spacing: 10) {
+            VStack(spacing: 0) {
                 ForEach(store.preferences.presets) { preset in
                     let index = store.preferences.presets.firstIndex(where: { $0.id == preset.id }) ?? 0
+                    if index > 0 {
+                        Divider().padding(.horizontal, 16)
+                    }
                     presetCard(index: index, preset: preset)
                 }
             }
+            .settingsCard()
         }
     }
 
     private func presetCard(index: Int, preset: WindowPresetSettings) -> some View {
-        VStack(alignment: .leading, spacing: 15) {
-            HStack(spacing: 10) {
-                presetPreview(preset)
+        HStack(spacing: 16) {
+            presetPreview(preset)
 
-                VStack(alignment: .leading, spacing: 7) {
-                    Text("预设 \(index + 1)")
-                        .font(.system(size: 13, weight: .semibold))
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
                     Text("\(store.preferences.modifier.symbol) \(index + 1)")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 5))
+                        .accessibilityLabel("预设 \(index + 1)，快捷键 \(store.preferences.modifier.title) 加 \(index + 1)")
+
+                    Spacer()
+
+                    Menu {
+                        Button("删除预设", role: .destructive) {
+                            store.removePreset(id: preset.id)
+                        }
+                        .disabled(store.preferences.presets.count <= 1)
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .frame(width: 24, height: 20)
+                            .contentShape(Rectangle())
+                    }
+                    .menuStyle(.borderlessButton)
+                    .menuIndicator(.hidden)
+                    .fixedSize()
+                    .accessibilityLabel("预设 \(index + 1) 的操作")
+                    .help("预设操作")
                 }
 
-                Spacer()
-
-                Button(role: .destructive) {
-                    store.removePreset(id: preset.id)
-                } label: {
-                    Image(systemName: "trash")
-                        .frame(width: 28, height: 28)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("删除预设")
-                .disabled(store.preferences.presets.count <= 1)
-            }
-
-            HStack(spacing: 24) {
                 percentageSlider(
                     title: "宽度",
                     value: Binding(
@@ -445,8 +451,7 @@ struct SettingsView: View {
             }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .settingsCard()
+        .padding(.vertical, 12)
     }
 
     private func presetPreview(_ preset: WindowPresetSettings) -> some View {
@@ -469,16 +474,22 @@ struct SettingsView: View {
     }
 
     private func percentageSlider(title: String, value: Binding<Double>) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Text(title)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                valueBadge("\(Int(value.wrappedValue.rounded()))%")
-            }
+        HStack(spacing: 10) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 28, alignment: .leading)
             Slider(value: value, in: 1...100)
                 .accessibilityLabel(title)
+            TextField(title, value: value, format: .number.precision(.fractionLength(0)))
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .monospacedDigit()
+                .frame(width: 44)
+                .accessibilityLabel("\(title)百分比")
+            Text("%")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
     }
