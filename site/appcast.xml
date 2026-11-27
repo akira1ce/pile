@@ -4,34 +4,32 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
     <channel>
         <title>pile</title>
         <item>
-            <title>1.2.1</title>
-            <pubDate>Tue, 10 Nov 2026 14:54:36 +0800</pubDate>
+            <title>1.2.2</title>
+            <pubDate>Fri, 27 Nov 2026 11:58:50 +0800</pubDate>
             <link>https://akira1ce.github.io/pile/</link>
-            <sparkle:fullReleaseNotesLink>https://github.com/akira1ce/pile/releases/tag/1.2.1</sparkle:fullReleaseNotesLink>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:fullReleaseNotesLink>https://github.com/akira1ce/pile/releases/tag/1.2.2</sparkle:fullReleaseNotesLink>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# pile v1.2.1
+            <description sparkle:format="markdown"><![CDATA[# pile v1.2.2
 
 ## 更新内容
 
-- **功能介绍更紧凑**：动画演示与快捷键说明左右排列，减少窗口高度；快捷键范围按当前预设数量显示。
-- **设置界面优化**：统一卡片、间距与控件对齐，预设新增尺寸比例示意，调整时更直观。
-- **软件更新入口更清晰**：「关于 pile」中的版本信息和更新选项分别成组，自动检查开关与其他设置保持一致。
-- **深色外观适配**：功能演示背景随系统外观变化，改善深色模式下的对比度。
-- **快捷键提示修正**：明确居中和收起 / 展开需要先关闭设置，窗口切换仍可使用。
+- **窗口预设更紧凑**：预览与宽高控件并排展示，支持滑块调整和直接输入百分比；删除操作收进预设菜单。
+- **滑块显示更简洁**：移除窗口预设滑块的刻度，尺寸比例仍按整数保存。
+- **新增展开排列**：支持阶梯、纵向和横向三种方式，沿用收起后的窗口尺寸，共用固定间距，不随窗口数量自动压缩。
+- **排列效果预览**：「展开方式」页面随所选模式和间距展示排列示意。
+- **保留已有设置**：原来的堆叠模式对应阶梯排列，已有窗口预设和间距继续使用。
 
 ## 更新说明
 
-已经安装 1.2.0 的用户可从菜单栏或「关于 pile」点击「检查更新」，确认下载与安装后自动重启到 1.2.1。
-
-此版本继续使用原有 Apple Development 证书和 EdDSA 更新密钥，未经过 Apple 公证。需要 macOS 26 或更新版本。
+需要 macOS 26 或更新版本。安装包含 Sparkle 的旧版本后，可在本版本发布后从菜单栏或「关于 pile」检查更新。
 ]]></description>
-            <enclosure url="https://github.com/akira1ce/pile/releases/download/1.2.1/pile-1.2.1.dmg" length="1559040" type="application/octet-stream" sparkle:edSignature="kgIuZyJGy7ek4fUVjydoDV+u5YOG+JcIT1IVHCa47FFo2BNFVjo19400Q7kf07utM6nxNyAPSQnhUZUX8N97CA=="></enclosure>
+            <enclosure url="https://github.com/akira1ce/pile/releases/download/1.2.2/pile-1.2.2.dmg" length="1580544" type="application/octet-stream" sparkle:edSignature="Htze7ONuzFb1XSFqFx6eeKDhQs4mJXkv24W6aMsE1kZORj6Z/8kjD6pMibspIrnTMKCtPcE1HNeDTwIMprzBCA=="></enclosure>
         </item>
     </channel>
 </rss><!-- sparkle-signatures:
-edSignature: UbRFbAYNUTn8pZFRmbss9JzGs6j59oDnJVTOp1Qok0d/Cf952rSTh4+p1X/5sBdz5zin9P+KJWmdygLJzP33CA==
-length: 2326
+edSignature: smhb1vSVugs3yxG4h47FjCnaqN6fe5P4c9BXm8Z+jkNp9mWucweb8q9x3FS786dCOuBhUqvQuIXbl4+Y6QrKCg==
+length: 2177
 -->

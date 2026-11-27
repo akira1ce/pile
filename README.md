@@ -88,7 +88,7 @@ Sparkle and its helpers are embedded and signed with the same certificate. The f
 
 ### Publish an update
 
-See the [release and in-app update handbook (Chinese)](docs/releasing.md) for the full workflow, signing setup, proxy configuration and troubleshooting.
+See the [release and in-app update handbook (Chinese)](docs/releasing.md) for the step-by-step release workflow.
 
 1. Increase both version fields in `Resources/Info.plist` and add `docs/releases/<version>.md`.
 2. Run `./Scripts/build-dmg.sh release`. It generates the DMG and stages a signed feed in `build/updates/appcast.xml`; release notes are embedded.

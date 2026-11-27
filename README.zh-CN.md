@@ -88,7 +88,7 @@ Sparkle 框架及其辅助程序会一起嵌入，并使用同一张证书签名
 
 ### 发布更新
 
-完整步骤、签名设置、代理配置和常见报错见 [发布与应用内更新手册](docs/releasing.md)。
+按顺序操作的发布步骤见 [发布与应用内更新手册](docs/releasing.md)。
 
 1. 递增 `Resources/Info.plist` 中的版本号与 build number，编写 `docs/releases/<版本>.md`。
 2. 运行 `./Scripts/build-dmg.sh release`，得到 DMG 和暂存的已签名更新源 `build/updates/appcast.xml`，更新说明会嵌入其中。
